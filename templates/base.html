@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Coach {% block title_extra %}{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        a { color: #818cf8; text-decoration: none; }
+        a:hover { color: #a5b4fc; }
+
+        /* Navigation */
+        .navbar {
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            height: 64px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .nav-brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #818cf8;
+            margin-right: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .nav-links {
+            display: flex;
+            gap: 0.25rem;
+        }
+        .nav-link {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            color: #94a3b8;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-link:hover, .nav-link.active {
+            background: #334155;
+            color: #e2e8f0;
+        }
+        .nav-link.active { background: #3730a3; color: white; }
+        .nav-badge {
+            background: #ef4444;
+            color: white;
+            font-size: 0.7rem;
+            padding: 1px 6px;
+            border-radius: 99px;
+            margin-left: 4px;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: #f1f5f9;
+        }
+
+        /* Cards */
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .stat-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #818cf8;
+        }
+        .stat-label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 0.25rem;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn-primary {
+            background: #4f46e5;
+            color: white;
+        }
+        .btn-primary:hover { background: #4338ca; }
+        .btn-secondary {
+            background: #334155;
+            color: #e2e8f0;
+        }
+        .btn-secondary:hover { background: #475569; }
+        .btn-success { background: #059669; color: white; }
+        .btn-success:hover { background: #047857; }
+        .btn-warning { background: #d97706; color: white; }
+        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+
+        /* Input */
+        .input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            color: #e2e8f0;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        .input:focus {
+            outline: none;
+            border-color: #818cf8;
+        }
+        textarea.input {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        /* Verdict badges */
+        .verdict {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.2rem 0.75rem;
+            border-radius: 99px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .verdict-natural { background: #064e3b; color: #6ee7b7; }
+        .verdict-unnatural { background: #78350f; color: #fcd34d; }
+        .verdict-incorrect { background: #7f1d1d; color: #fca5a5; }
+
+        /* Score circle */
+        .score-circle {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            border: 3px solid;
+        }
+
+        /* Sentence card */
+        .sentence-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s;
+        }
+        .sentence-card:hover {
+            border-color: #475569;
+        }
+        .sentence-original {
+            font-size: 1.05rem;
+            color: #f1f5f9;
+            margin-bottom: 0.5rem;
+        }
+        .sentence-corrected {
+            color: #10b981;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+        .sentence-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        /* Review input area */
+        .review-box {
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .review-box.correct { border-color: #10b981; background: #064e3b20; }
+        .review-box.wrong { border-color: #ef4444; background: #7f1d1d20; }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 1000;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Loading spinner */
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid #334155;
+            border-top-color: #818cf8;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Filter tabs */
+        .filter-tabs {
+            display: flex;
+            gap: 0.25rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .filter-tab {
+            padding: 0.4rem 1rem;
+            border-radius: 8px;
+            background: #1e293b;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: 1px solid #334155;
+            transition: all 0.2s;
+        }
+        .filter-tab:hover, .filter-tab.active {
+            background: #334155;
+            color: white;
+        }
+        .filter-tab.active { border-color: #818cf8; }
+
+        /* Bookmark star */
+        .bookmark-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: transform 0.2s;
+        }
+        .bookmark-btn:hover { transform: scale(1.2); }
+
+        /* Note area */
+        .note-area {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #334155;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #64748b;
+        }
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .navbar { padding: 0 1rem; }
+            .nav-brand { margin-right: 1rem; font-size: 1rem; }
+            .container { padding: 1rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">📝 English Coach</div>
+        <div class="nav-links">
+            <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Dashboard</a>
+            <a href="/session" class="nav-link {% if request.path == '/session' %}active{% endif %}">Practice</a>
+            <a href="/review" class="nav-link {% if request.path == '/review' %}active{% endif %}">
+                Review
+                {% if due_count is defined and due_count > 0 %}
+                <span class="nav-badge">{{ due_count }}</span>
+                {% endif %}
+            </a>
+            <a href="/history" class="nav-link {% if request.path == '/history' %}active{% endif %}">History</a>
+            <a href="/notes" class="nav-link {% if request.path == '/notes' %}active{% endif %}">Notes</a>
+            <a href="/report" class="nav-link {% if request.path == '/report' %}active{% endif %}">Report</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

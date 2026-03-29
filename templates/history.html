@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="page-title">📚 Sentence History</h1>
+
+<!-- Filters -->
+<div class="filter-tabs">
+    <a href="/history?filter=all" class="filter-tab {% if filter_type == 'all' %}active{% endif %}">All</a>
+    <a href="/history?filter=incorrect" class="filter-tab {% if filter_type == 'incorrect' %}active{% endif %}">❌ Incorrect</a>
+    <a href="/history?filter=unnatural" class="filter-tab {% if filter_type == 'unnatural' %}active{% endif %}">⚠️ Unnatural</a>
+    <a href="/history?filter=bookmarked" class="filter-tab {% if filter_type == 'bookmarked' %}active{% endif %}">⭐ Bookmarked</a>
+    <a href="/history?filter=notes" class="filter-tab {% if filter_type == 'notes' %}active{% endif %}">📝 With Notes</a>
+</div>
+
+{% if entries|length == 0 %}
+<div class="empty-state">
+    <div class="empty-state-icon">📭</div>
+    <h2 style="color: #e2e8f0; margin-bottom: 0.5rem;">Kuch nahi mila!</h2>
+    <p>{% if filter_type == 'all' %}Abhi tak koi sentence nahi hai. Practice shuru karo!{% else %}Is filter mein koi entry nahi hai.{% endif %}</p>
+    {% if filter_type == 'all' %}
+    <a href="/session" class="btn btn-primary" style="margin-top: 1rem;">✍️ Start Practice</a>
+    {% endif %}
+</div>
+{% else %}
+
+<p style="color: #94a3b8; margin-bottom: 1rem;">{{ entries|length }} sentences found</p>
+
+{% for entry in entries %}
+<div class="sentence-card" id="card-{{ entry.id }}">
+    <div style="display: flex; justify-content: space-between; align-items: start;">
+        <div style="flex: 1;">
+            <div class="sentence-original">"{{ entry.original }}"</div>
+            {% if entry.original != entry.corrected %}
+            <div class="sentence-corrected">→ "{{ entry.corrected }}"</div>
+            {% endif %}
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div class="score-circle" style="border-color: {{ entry.score|score_color }}; color: {{ entry.score|score_color }}; width: 40px; height: 40px; font-size: 0.9rem;">
+                {{ entry.score }}
+            </div>
+            <button class="bookmark-btn" onclick="toggleBookmark('{{ entry.id }}', this)"
+                    title="Bookmark this sentence">
+                {{ '⭐' if entry.bookmarked else '☆' }}
+            </button>
+        </div>
+    </div>
+
+    <div class="sentence-meta" style="margin-top: 0.5rem;">
+        <span class="verdict verdict-{{ entry.verdict }}">{{ entry.verdict|verdict_emoji }} {{ entry.verdict }}</span>
+        <span>{{ entry.date }}</span>
+        <span>Reviewed {{ entry.times_reviewed }}x</span>
+    </div>
+
+    <div style="color: #e2e8f0; font-size: 0.9rem; margin-top: 0.75rem;">
+        💡 {{ entry.explanation }}
+    </div>
+    <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.25rem;">
+        📏 {{ entry.rule }}
+    </div>
+
+    <!-- Notes -->
+    <div class="note-area">
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <span style="font-size: 0.8rem; color: #94a3b8;">📝 Personal Note:</span>
+            <button class="btn btn-sm btn-secondary" onclick="toggleNote('{{ entry.id }}')" id="note-toggle-{{ entry.id }}">
+                {{ 'Edit' if entry.notes else 'Add Note' }}
+            </button>
+        </div>
+        {% if entry.notes %}
+        <div id="note-display-{{ entry.id }}" style="color: #a5b4fc; font-size: 0.85rem; font-style: italic; padding: 0.5rem; background: #0f172a; border-radius: 6px;">
+            {{ entry.notes }}
+        </div>
+        {% endif %}
+        <div id="note-edit-{{ entry.id }}" style="display: none;">
+            <textarea class="input" id="note-text-{{ entry.id }}" placeholder="Apni notes yahan likho...">{{ entry.notes or '' }}</textarea>
+            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+                <button class="btn btn-sm btn-success" onclick="saveNote('{{ entry.id }}')">Save</button>
+                <button class="btn btn-sm btn-secondary" onclick="toggleNote('{{ entry.id }}')">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function toggleBookmark(id, btn) {
+    const resp = await fetch(`/entry/${id}/bookmark`, { method: 'POST' });
+    const data = await resp.json();
+    btn.textContent = data.bookmarked ? '⭐' : '☆';
+}
+
+function toggleNote(id) {
+    const editDiv = document.getElementById(`note-edit-${id}`);
+    editDiv.style.display = editDiv.style.display === 'none' ? 'block' : 'none';
+}
+
+async function saveNote(id) {
+    const note = document.getElementById(`note-text-${id}`).value;
+    await fetch(`/entry/${id}/note`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note })
+    });
+
+    // Update display
+    let display = document.getElementById(`note-display-${id}`);
+    if (!display) {
+        display = document.createElement('div');
+        display.id = `note-display-${id}`;
+        display.style.cssText = 'color: #a5b4fc; font-size: 0.85rem; font-style: italic; padding: 0.5rem; background: #0f172a; border-radius: 6px;';
+        document.getElementById(`note-edit-${id}`).parentNode.insertBefore(display, document.getElementById(`note-edit-${id}`));
+    }
+    display.textContent = note;
+
+    toggleNote(id);
+    document.getElementById(`note-toggle-${id}`).textContent = note ? 'Edit' : 'Add Note';
+}
+</script>
+{% endblock %}

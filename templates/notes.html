@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="page-title">📝 My Notes & Bookmarks</h1>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+    <div class="stat-card">
+        <div class="stat-value">{{ bookmarked|length }}</div>
+        <div class="stat-label">⭐ Bookmarked</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ noted|length }}</div>
+        <div class="stat-label">📝 With Notes</div>
+    </div>
+</div>
+
+{% if bookmarked %}
+<div class="card">
+    <div class="card-title">⭐ Bookmarked Sentences</div>
+    {% for entry in bookmarked %}
+    <div class="sentence-card">
+        <div class="sentence-original">"{{ entry.original }}"</div>
+        {% if entry.original != entry.corrected %}
+        <div class="sentence-corrected">→ "{{ entry.corrected }}"</div>
+        {% endif %}
+        <div class="sentence-meta">
+            <span class="verdict verdict-{{ entry.verdict }}">{{ entry.verdict|verdict_emoji }} {{ entry.verdict }}</span>
+            <span>{{ entry.date }}</span>
+            <span style="color: {{ entry.score|score_color }};">Score: {{ entry.score }}/10</span>
+        </div>
+        <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem;">
+            📏 {{ entry.rule }}
+        </div>
+        {% if entry.notes %}
+        <div style="color: #a5b4fc; font-size: 0.85rem; margin-top: 0.5rem; padding: 0.5rem; background: #0f172a; border-radius: 6px;">
+            📝 {{ entry.notes }}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if noted %}
+<div class="card">
+    <div class="card-title">📝 Sentences with Notes</div>
+    {% for entry in noted %}
+    <div class="sentence-card">
+        <div class="sentence-original">"{{ entry.original }}"</div>
+        {% if entry.original != entry.corrected %}
+        <div class="sentence-corrected">→ "{{ entry.corrected }}"</div>
+        {% endif %}
+        <div style="color: #a5b4fc; font-size: 0.9rem; margin-top: 0.5rem; padding: 0.75rem; background: #0f172a; border-radius: 6px;">
+            {{ entry.notes }}
+        </div>
+        <div class="sentence-meta" style="margin-top: 0.5rem;">
+            <span>{{ entry.date }}</span>
+            <span style="color: {{ entry.score|score_color }};">Score: {{ entry.score }}/10</span>
+            <span>{{ entry.rule }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if not bookmarked and not noted %}
+<div class="empty-state">
+    <div class="empty-state-icon">📝</div>
+    <h2 style="color: #e2e8f0; margin-bottom: 0.5rem;">No notes or bookmarks yet</h2>
+    <p>History mein ja ke sentences ko bookmark ya note karo!</p>
+    <a href="/history" class="btn btn-primary" style="margin-top: 1rem;">📚 Go to History</a>
+</div>
+{% endif %}
+{% endblock %}

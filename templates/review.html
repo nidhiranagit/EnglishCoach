@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="page-title">📖 Spaced Repetition Review</h1>
+
+{% if due_sentences|length == 0 %}
+<div class="empty-state">
+    <div class="empty-state-icon">🎉</div>
+    <h2 style="color: #e2e8f0; margin-bottom: 0.5rem;">Koi review pending nahi hai!</h2>
+    <p>All caught up — ab naye sentences practice karo.</p>
+    <a href="/session" class="btn btn-primary" style="margin-top: 1rem;">✍️ Start Practice</a>
+</div>
+{% else %}
+
+<p style="color: #94a3b8; margin-bottom: 1.5rem;">
+    <strong style="color: #fcd34d;">{{ total_due }}</strong> sentences review ke liye due hain.
+    Original sentence dikhega — tumhe corrected version type karna hai!
+</p>
+
+<div id="review-container">
+    {% for entry in due_sentences %}
+    <div class="review-box" id="review-{{ entry.id }}" {% if not loop.first %}style="display:none;"{% endif %}>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <span style="color: #94a3b8; font-size: 0.85rem;">
+                [{{ loop.index }}/{{ total_due }}] — {{ entry.date }}
+            </span>
+            <span class="verdict verdict-{{ entry.verdict }}">{{ entry.verdict|verdict_emoji }} {{ entry.verdict }}</span>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+            <div style="color: #64748b; font-size: 0.8rem; margin-bottom: 0.25rem;">Type the correct version of:</div>
+            <div style="font-size: 1.2rem; color: #fca5a5; font-weight: 500; padding: 0.75rem; background: #7f1d1d20; border-radius: 8px;">
+                "{{ entry.original }}"
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+            <input type="text" class="input review-input" id="input-{{ entry.id }}"
+                   placeholder="Type the corrected sentence..."
+                   data-id="{{ entry.id }}"
+                   onkeydown="if(event.key==='Enter') checkReview('{{ entry.id }}')">
+            <button class="btn btn-success" onclick="checkReview('{{ entry.id }}')">Check</button>
+        </div>
+
+        <div id="result-{{ entry.id }}" style="display:none;"></div>
+
+        <div style="text-align: right; margin-top: 1rem; display:none;" id="next-{{ entry.id }}">
+            {% if loop.last %}
+            <a href="/session" class="btn btn-primary">✍️ Start Practice Session →</a>
+            {% else %}
+            <button class="btn btn-secondary" onclick="showNext('{{ entry.id }}', '{{ due_sentences[loop.index].id if loop.index < total_due else '' }}')">
+                Next →
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Summary (shown at end) -->
+<div id="review-summary" style="display:none;">
+    <div class="card" style="text-align: center; border-color: #818cf8;">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎯</div>
+        <h2 style="color: #f1f5f9; margin-bottom: 0.5rem;">Review Complete!</h2>
+        <p id="summary-text" style="color: #94a3b8; margin-bottom: 1rem;"></p>
+        <a href="/session" class="btn btn-primary">✍️ Start Practice Session</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let correctCount = 0;
+let totalReviewed = 0;
+
+async function checkReview(entryId) {
+    const input = document.getElementById(`input-${entryId}`);
+    const answer = input.value.trim();
+    if (!answer) return;
+
+    input.disabled = true;
+
+    try {
+        const resp = await fetch('/review/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entry_id: entryId, answer })
+        });
+        const data = await resp.json();
+        totalReviewed++;
+
+        const resultDiv = document.getElementById(`result-${entryId}`);
+        const reviewBox = document.getElementById(`review-${entryId}`);
+
+        if (data.is_correct) {
+            correctCount++;
+            reviewBox.classList.add('correct');
+            resultDiv.innerHTML = `
+                <div style="padding: 0.75rem; background: #064e3b40; border-radius: 8px;">
+                    <div style="color: #6ee7b7; font-weight: 600; margin-bottom: 0.5rem;">
+                        ✅ Bilkul sahi! (${data.similarity}% match)
+                    </div>
+                    <div style="color: #94a3b8; font-size: 0.85rem;">
+                        📏 Rule: ${data.rule}
+                    </div>
+                </div>`;
+        } else {
+            reviewBox.classList.add('wrong');
+            resultDiv.innerHTML = `
+                <div style="padding: 0.75rem; background: #7f1d1d20; border-radius: 8px;">
+                    <div style="color: #fca5a5; font-weight: 600; margin-bottom: 0.5rem;">
+                        ❌ Quite close! (${data.similarity}% match)
+                    </div>
+                    <div style="color: #fca5a5; margin-bottom: 0.5rem;">
+                        Your answer: "${data.user_answer}"
+                    </div>
+                    <div style="color: #10b981; margin-bottom: 0.5rem;">
+                        ✅ Correct: "${data.correct_answer}"
+                    </div>
+                    <div style="color: #e2e8f0; font-size: 0.9rem; margin-bottom: 0.25rem;">
+                        💡 ${data.explanation}
+                    </div>
+                    <div style="color: #94a3b8; font-size: 0.85rem;">
+                        📏 Rule: ${data.rule}
+                    </div>
+                </div>`;
+        }
+
+        resultDiv.style.display = 'block';
+        document.getElementById(`next-${entryId}`).style.display = 'block';
+
+    } catch (err) {
+        alert('Error checking answer. Please try again.');
+        input.disabled = false;
+    }
+}
+
+function showNext(currentId, nextId) {
+    document.getElementById(`review-${currentId}`).style.display = 'none';
+    if (nextId) {
+        document.getElementById(`review-${nextId}`).style.display = 'block';
+        document.getElementById(`input-${nextId}`).focus();
+    } else {
+        showSummary();
+    }
+}
+
+function showSummary() {
+    document.getElementById('review-container').style.display = 'none';
+    const summary = document.getElementById('review-summary');
+    document.getElementById('summary-text').textContent =
+        `${correctCount}/${totalReviewed} sahi the — ${correctCount === totalReviewed ? 'Shaandaar! 🔥' : 'Keep practicing!'}`;
+    summary.style.display = 'block';
+}
+</script>
+{% endblock %}

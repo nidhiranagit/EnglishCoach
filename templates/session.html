@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="page-title">✍️ Practice Session</h1>
+<p style="color: #94a3b8; margin-bottom: 1.5rem;">
+    Apna English sentence type karo — AI bataayega ki natural hai ya nahi!
+    <br>Aaj ke liye <strong style="color: #818cf8;">{{ remaining }}</strong> sentences baaki hain.
+</p>
+
+<!-- Input area -->
+<div class="card" id="input-area" {% if remaining == 0 %}style="opacity: 0.5;"{% endif %}>
+    <div class="card-title">Enter a Sentence</div>
+    <div style="display: flex; gap: 0.75rem;">
+        <input type="text" id="sentence-input" class="input"
+               placeholder="Type your English sentence here..."
+               {% if remaining == 0 %}disabled{% endif %}
+               onkeydown="if(event.key==='Enter') analyzeSentence()">
+        <button class="btn btn-primary" onclick="analyzeSentence()" {% if remaining == 0 %}disabled{% endif %}>
+            <span id="btn-text">Analyze</span>
+            <span id="btn-spinner" class="spinner" style="display:none;"></span>
+        </button>
+    </div>
+    {% if remaining == 0 %}
+    <p style="color: #f59e0b; margin-top: 0.75rem; font-size: 0.9rem;">
+        🎯 Aaj ka limit ho gaya! Kal phir aana — consistency is key!
+    </p>
+    {% endif %}
+</div>
+
+<!-- Results will appear here -->
+<div id="results"></div>
+
+<!-- Today's entries -->
+{% if today_entries %}
+<div class="card" style="margin-top: 1rem;">
+    <div class="card-title">Today's Sentences</div>
+    {% for entry in today_entries %}
+    <div class="sentence-card">
+        <div class="sentence-original">"{{ entry.original }}"</div>
+        {% if entry.original != entry.corrected %}
+        <div class="sentence-corrected">→ "{{ entry.corrected }}"</div>
+        {% endif %}
+        <div class="sentence-meta">
+            <span class="verdict verdict-{{ entry.verdict }}">{{ entry.verdict|verdict_emoji }} {{ entry.verdict }}</span>
+            <span style="color: {{ entry.score|score_color }};">Score: {{ entry.score }}/10</span>
+        </div>
+        <div style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem;">
+            💡 {{ entry.explanation }}
+        </div>
+        <div style="color: #64748b; font-size: 0.8rem; margin-top: 0.25rem;">
+            📏 Rule: {{ entry.rule }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let remaining = {{ remaining }};
+
+async function analyzeSentence() {
+    const input = document.getElementById('sentence-input');
+    const sentence = input.value.trim();
+    if (!sentence) return;
+    if (remaining <= 0) return;
+
+    const btnText = document.getElementById('btn-text');
+    const btnSpinner = document.getElementById('btn-spinner');
+    btnText.textContent = 'Analyzing...';
+    btnSpinner.style.display = 'inline-block';
+
+    try {
+        const resp = await fetch('/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sentence })
+        });
+        const data = await resp.json();
+
+        if (data.error) {
+            showResult(null, data.error);
+        } else {
+            showResult(data, null);
+            remaining--;
+            input.value = '';
+            if (remaining <= 0) {
+                document.getElementById('input-area').style.opacity = '0.5';
+                input.disabled = true;
+            }
+        }
+    } catch (err) {
+        showResult(null, 'Network error — please try again.');
+    }
+
+    btnText.textContent = 'Analyze';
+    btnSpinner.style.display = 'none';
+    input.focus();
+}
+
+function showResult(data, error) {
+    const container = document.getElementById('results');
+    const div = document.createElement('div');
+
+    if (error) {
+        div.innerHTML = `
+            <div class="card" style="border-color: #ef4444;">
+                <p style="color: #fca5a5;">❌ ${error}</p>
+            </div>`;
+    } else {
+        const verdictClass = data.verdict;
+        const emoji = data.verdict === 'natural' ? '✅' : data.verdict === 'unnatural' ? '⚠️' : '❌';
+        const scoreColor = data.score >= 8 ? '#10b981' : data.score >= 5 ? '#f59e0b' : '#ef4444';
+
+        div.innerHTML = `
+            <div class="card" style="border-left: 4px solid ${scoreColor}; animation: slideUp 0.3s ease;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                    <div>
+                        <div class="sentence-original">"${data.original}"</div>
+                        ${data.original !== data.corrected ? `<div class="sentence-corrected">→ "${data.corrected}"</div>` : ''}
+                    </div>
+                    <div style="text-align: center; min-width: 60px;">
+                        <div class="score-circle" style="border-color: ${scoreColor}; color: ${scoreColor}; margin: 0 auto;">
+                            ${data.score}
+                        </div>
+                        <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 0.25rem;">/10</div>
+                    </div>
+                </div>
+                <div class="sentence-meta" style="margin-bottom: 0.75rem;">
+                    <span class="verdict verdict-${verdictClass}">${emoji} ${data.verdict}</span>
+                </div>
+                <div style="color: #e2e8f0; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                    💡 ${data.explanation}
+                </div>
+                <div style="color: #94a3b8; font-size: 0.85rem; padding: 0.5rem 0.75rem; background: #0f172a; border-radius: 6px;">
+                    📏 Rule: ${data.rule}
+                </div>
+            </div>`;
+    }
+
+    container.insertBefore(div, container.firstChild);
+}
+</script>
+{% endblock %}
