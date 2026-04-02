@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import empty_state, page_header, stat_card %}
+
+{% block title_extra %}— Vocabulary Bank{% endblock %}
+
+{% block content %}
+{{ page_header("Vocabulary Bank", "Words extracted from your sentence corrections") }}
+
+{% if vocab_entries %}
+<div class="stats-grid">
+  {{ stat_card(vocab_entries | length, "Total Words", "#818cf8") }}
+  {{ stat_card(mastered_count, "Mastered", "#10b981") }}
+  {{ stat_card(due_vocab_count, "Due for Review", "#f59e0b") }}
+</div>
+
+<div class="filter-tabs">
+  <a href="/vocabulary" class="filter-tab {% if not filter %}active{% endif %}">All</a>
+  <a href="/vocabulary?filter=due" class="filter-tab {% if filter == 'due' %}active{% endif %}">Due for Review</a>
+  <a href="/vocabulary?filter=mastered" class="filter-tab {% if filter == 'mastered' %}active{% endif %}">Mastered</a>
+  <a href="/vocabulary?filter=bookmarked" class="filter-tab {% if filter == 'bookmarked' %}active{% endif %}">Bookmarked</a>
+</div>
+
+{% for entry in vocab_entries %}
+<div class="card" style="border-left: 3px solid #818cf8;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+    <div>
+      <div style="font-size: 1.2rem; font-weight: 600; color: #f1f5f9; margin-bottom: 0.25rem;">{{ entry.word }}</div>
+      <div style="color: #94a3b8; font-size: 0.85rem;">{{ entry.date }}
+        {% if entry.times_reviewed > 0 %}
+        · Reviewed {{ entry.times_reviewed }}x
+        {% endif %}
+      </div>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      {% if entry.times_reviewed >= 3 %}
+      <span class="verdict verdict-natural">Mastered</span>
+      {% elif entry.times_reviewed > 0 %}
+      <span class="verdict verdict-unnatural">Learning</span>
+      {% else %}
+      <span class="verdict verdict-incorrect">New</span>
+      {% endif %}
+      <button class="bookmark-btn btn btn-sm btn-secondary" onclick="toggleBookmark('{{ entry.id }}', this)">
+        {{ '⭐' if entry.bookmarked else '☆' }}
+      </button>
+    </div>
+  </div>
+
+  <div style="margin-top: 0.75rem; padding: 0.75rem; background: #0f172a; border-radius: 8px;">
+    <div style="margin-bottom: 0.5rem;"><strong style="color: #818cf8;">Meaning:</strong> {{ entry.meaning }}</div>
+    <div style="margin-bottom: 0.5rem;"><strong style="color: #10b981;">Example:</strong> <em>{{ entry.example }}</em></div>
+    <div><strong style="color: #f59e0b;">Hinglish:</strong> {{ entry.explanation_hi }}</div>
+  </div>
+</div>
+{% endfor %}
+
+{% else %}
+{{ empty_state("📚", "No vocabulary words yet", "Start practicing sentences — new words will be auto-extracted from corrections!", "Start Practicing", "/session") }}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function toggleBookmark(id, btn) {
+  const res = await fetch(`/entry/${id}/bookmark`, { method: 'POST' });
+  const data = await res.json();
+  btn.textContent = data.bookmarked ? '⭐' : '☆';
+}
+</script>
+{% endblock %}

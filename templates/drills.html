@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import page_header, stat_card, empty_state %}
+
+{% block title_extra %}— Grammar Drills{% endblock %}
+
+{% block content %}
+{{ page_header("Grammar Drills", "Focused exercises based on your weak areas") }}
+
+<div class="stats-grid">
+  {{ stat_card(total_drills, "Drills Done", "#818cf8") }}
+  {{ stat_card(weakest_rule or "None", "Weakest Area", "#ef4444") }}
+</div>
+
+<div class="card">
+  <div class="card-title">Choose a Grammar Topic</div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem;">
+    {% set topics = [
+      ("articles", "📰", "Articles", "a, an, the"),
+      ("prepositions", "📍", "Prepositions", "in, on, at, by, to"),
+      ("tenses", "⏰", "Tenses", "Past, present, future"),
+      ("subject_verb", "🔗", "Subject-Verb Agreement", "He goes / They go"),
+      ("conditionals", "🔀", "Conditionals", "If/would/could"),
+      ("modals", "💪", "Modal Verbs", "Can, should, must, might"),
+    ] %}
+    {% for value, icon, label, desc in topics %}
+    <button class="topic-btn card" onclick="startDrill('{{ value }}', '{{ label }}')"
+            style="cursor: pointer; text-align: center; padding: 1rem; transition: all 0.2s; border: 2px solid #334155;"
+            data-topic="{{ value }}">
+      <div style="font-size: 1.5rem;">{{ icon }}</div>
+      <div style="font-weight: 600; color: #f1f5f9; font-size: 0.9rem; margin-top: 0.5rem;">{{ label }}</div>
+      <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">{{ desc }}</div>
+    </button>
+    {% endfor %}
+  </div>
+</div>
+
+<div id="spinner" style="display:none; text-align:center; padding: 2rem;">
+  <div class="spinner"></div>
+  <p style="margin-top: 1rem; color: #94a3b8;">Generating exercises from your past mistakes...</p>
+</div>
+
+<div id="drill-area" style="display:none;"></div>
+<div id="drill-result" style="display:none;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let exercises = [];
+let answers = {};
+let currentTopic = '';
+
+async function startDrill(topic, label) {
+  currentTopic = topic;
+  document.querySelectorAll('.topic-btn').forEach(btn => {
+    btn.style.borderColor = btn.dataset.topic === topic ? '#818cf8' : '#334155';
+  });
+
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('drill-area').style.display = 'none';
+  document.getElementById('drill-result').style.display = 'none';
+
+  try {
+    const res = await fetch('/drills/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ topic })
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    exercises = data.exercises;
+    answers = {};
+    document.getElementById('spinner').style.display = 'none';
+    renderDrill(label);
+  } catch(e) {
+    alert('Failed to generate exercises.');
+    document.getElementById('spinner').style.display = 'none';
+  }
+}
+
+function renderDrill(label) {
+  const area = document.getElementById('drill-area');
+  area.style.display = 'block';
+
+  let html = `<div class="card"><div class="card-title">${label} — Fill in the Blanks</div>`;
+
+  exercises.forEach((ex, i) => {
+    html += `
+      <div style="padding: 1rem; background: #0f172a; border-radius: 8px; margin-bottom: 0.75rem;">
+        <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.5rem;">Question ${i + 1}</div>
+        <div style="font-size: 1.05rem; margin-bottom: 0.75rem; color: #f1f5f9;">${ex.sentence}</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+          ${ex.options.map(opt => `
+            <button class="btn btn-secondary btn-sm option-btn" data-q="${i}" data-opt="${opt}"
+                    onclick="selectOption(${i}, '${opt.replace(/'/g, "\\'")}', this)">
+              ${opt}
+            </button>
+          `).join('')}
+        </div>
+        <div id="selected-${i}" style="margin-top: 0.5rem; font-size: 0.85rem; color: #818cf8;"></div>
+      </div>
+    `;
+  });
+
+  html += `
+    <div style="text-align: center; margin-top: 1rem;">
+      <button id="check-btn" class="btn btn-primary" onclick="checkDrill()" disabled>
+        Check Answers (0/${exercises.length})
+      </button>
+    </div>
+  </div>`;
+
+  area.innerHTML = html;
+}
+
+function selectOption(qIndex, option, btn) {
+  answers[qIndex] = option;
+
+  document.querySelectorAll(`[data-q="${qIndex}"]`).forEach(b => {
+    b.style.background = '#334155';
+    b.style.borderColor = '#334155';
+    b.style.color = '#e2e8f0';
+  });
+  btn.style.background = '#3730a3';
+  btn.style.borderColor = '#818cf8';
+  btn.style.color = 'white';
+
+  document.getElementById(`selected-${qIndex}`).textContent = `Selected: ${option}`;
+
+  const answered = Object.keys(answers).length;
+  const checkBtn = document.getElementById('check-btn');
+  checkBtn.textContent = `Check Answers (${answered}/${exercises.length})`;
+  checkBtn.disabled = answered < exercises.length;
+}
+
+async function checkDrill() {
+  const userAnswers = exercises.map((_, i) => answers[i] || '');
+
+  try {
+    const res = await fetch('/drills/check', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ topic: currentTopic, answers: userAnswers })
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    document.getElementById('drill-area').style.display = 'none';
+    const resultDiv = document.getElementById('drill-result');
+    resultDiv.style.display = 'block';
+
+    let html = `
+      <div class="card" style="border-color: ${data.score >= 4 ? '#10b981' : '#f59e0b'}; border-width: 2px;">
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+          <div class="score-circle" style="border-color: ${data.score >= 4 ? '#10b981' : data.score >= 3 ? '#f59e0b' : '#ef4444'}; color: ${data.score >= 4 ? '#10b981' : data.score >= 3 ? '#f59e0b' : '#ef4444'}; margin: 0 auto;">
+            ${data.score}<span style="font-size:0.5em">/5</span>
+          </div>
+          <div style="margin-top: 0.5rem; color: #94a3b8;">${data.score >= 4 ? 'Excellent!' : data.score >= 3 ? 'Good effort!' : 'Keep practicing!'}</div>
+        </div>
+    `;
+
+    data.results.forEach((r, i) => {
+      const isCorrect = r.is_correct;
+      html += `
+        <div style="padding: 1rem; background: ${isCorrect ? '#064e3b20' : '#7f1d1d20'}; border: 1px solid ${isCorrect ? '#10b98140' : '#ef444440'}; border-radius: 8px; margin-bottom: 0.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="font-size: 0.85rem; color: #94a3b8;">Question ${i + 1}</span>
+            <span style="color: ${isCorrect ? '#10b981' : '#ef4444'}; font-weight: 600;">${isCorrect ? 'Correct' : 'Incorrect'}</span>
+          </div>
+          <div style="margin-bottom: 0.5rem;">${r.sentence}</div>
+          ${!isCorrect ? `
+            <div style="font-size: 0.85rem;">
+              <span style="color: #ef4444;">Your answer: ${r.user_answer}</span> ·
+              <span style="color: #10b981;">Correct: ${r.correct_answer}</span>
+            </div>
+          ` : ''}
+          <div style="font-size: 0.85rem; color: #94a3b8; margin-top: 0.25rem;">${r.explanation_hi}</div>
+        </div>
+      `;
+    });
+
+    html += `
+        <div style="text-align: center; margin-top: 1rem;">
+          <button class="btn btn-primary" onclick="startDrill('${currentTopic}', '${currentTopic}')">Try Again</button>
+          <button class="btn btn-secondary" onclick="location.reload()" style="margin-left: 0.5rem;">Pick Another Topic</button>
+        </div>
+      </div>
+    `;
+
+    resultDiv.innerHTML = html;
+  } catch(e) {
+    alert('Something went wrong checking answers.');
+  }
+}
+</script>
+{% endblock %}

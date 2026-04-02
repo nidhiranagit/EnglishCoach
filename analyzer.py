@@ -1,15 +1,11 @@
 """
-Analyzer module — calls Anthropic API to analyze English sentences.
+Analyzer module — analyzes English sentences using the configured LLM provider.
 """
 
 import json
-import os
 import time
-from dotenv import load_dotenv
 
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
-
-import anthropic
+from llm_provider import call_llm
 
 SYSTEM_PROMPT = """You are an English coach. Analyze this sentence and return ONLY valid JSON:
 {
@@ -30,19 +26,11 @@ Be encouraging but honest. The explanation should help a Hindi speaker understan
 
 
 def analyze_sentence(sentence: str) -> dict:
-    """Analyze a sentence using the Anthropic API. Retries once on failure."""
-    client = anthropic.Anthropic()
-
+    """Analyze a sentence using the configured LLM provider. Retries once on failure."""
     for attempt in range(2):
         try:
-            message = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=500,
-                system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": sentence}],
-            )
+            raw = call_llm(SYSTEM_PROMPT, sentence, max_tokens=500)
 
-            raw = message.content[0].text.strip()
             # Try to extract JSON from the response
             if raw.startswith("```"):
                 raw = raw.split("```")[1]

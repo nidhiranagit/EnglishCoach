@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import page_header %}
+
+{% block title_extra %}— Settings{% endblock %}
+
+{% block content %}
+{{ page_header("Settings", "Choose your AI provider and model") }}
+
+<div class="card" style="border-left: 3px solid #818cf8;">
+  <div class="card-title">Current Provider</div>
+  <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+    <div style="font-size: 2rem;">
+      {% if current.provider == 'anthropic' %}🟣{% elif current.provider == 'openai' %}🟢{% else %}🦙{% endif %}
+    </div>
+    <div>
+      <div style="font-size: 1.2rem; font-weight: 600; color: #f1f5f9;">
+        {% if current.provider == 'anthropic' %}Anthropic (Claude){% elif current.provider == 'openai' %}OpenAI (GPT){% else %}Ollama (Local){% endif %}
+      </div>
+      <div style="font-size: 0.9rem; color: #94a3b8;">Model: {{ current.model }}</div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 1.5rem;">
+  <h2 style="font-size: 1.2rem; margin-bottom: 1rem;">Available Providers</h2>
+
+  {% for provider in providers %}
+  <div class="card provider-card" data-provider="{{ provider.id }}"
+       style="cursor: pointer; border: 2px solid {% if provider.id == current.provider %}#818cf8{% else %}#334155{% endif %};
+              opacity: {% if provider.available %}1{% else %}0.5{% endif %};"
+       onclick="{% if provider.available %}selectProvider('{{ provider.id }}'){% endif %}">
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <div style="font-size: 2rem;">{{ provider.icon }}</div>
+        <div>
+          <div style="font-weight: 600; color: #f1f5f9;">{{ provider.name }}</div>
+          <div style="font-size: 0.8rem; color: {% if provider.available %}#10b981{% else %}#ef4444{% endif %};">
+            {% if provider.available %}
+              Available · {{ provider.models | length }} model{{ 's' if provider.models | length != 1 }}
+            {% elif provider.id == 'ollama' %}
+              Not running — start with: ollama serve
+            {% else %}
+              API key not set — add to .env file
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% if provider.id == current.provider %}
+      <span class="verdict verdict-natural">Active</span>
+      {% endif %}
+    </div>
+
+    {% if provider.available and provider.models %}
+    <div class="model-selector" style="margin-top: 1rem; {% if provider.id != current.provider %}display:none;{% endif %}">
+      <label style="font-size: 0.85rem; color: #94a3b8; display: block; margin-bottom: 0.5rem;">Select Model:</label>
+      <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+        {% for model in provider.models %}
+        <button class="btn btn-sm model-btn {% if model.id == current.model and provider.id == current.provider %}btn-primary{% else %}btn-secondary{% endif %}"
+                data-model="{{ model.id }}" data-provider="{{ provider.id }}"
+                onclick="event.stopPropagation(); selectModel('{{ provider.id }}', '{{ model.id }}')">
+          {{ model.name }}
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<div id="save-area" style="display: none; margin-top: 1.5rem; text-align: center;">
+  <button id="save-btn" class="btn btn-primary" onclick="saveSettings()" style="padding: 0.75rem 2rem; font-size: 1rem;">
+    Save Settings
+  </button>
+  <div id="save-status" style="margin-top: 0.75rem; font-size: 0.9rem;"></div>
+</div>
+
+<div class="card" style="margin-top: 2rem;">
+  <div class="card-title">API Key Configuration</div>
+  <div style="font-size: 0.9rem; color: #94a3b8; line-height: 1.6;">
+    <p>API keys are read from the <code style="background: #0f172a; padding: 0.15rem 0.5rem; border-radius: 4px; color: #818cf8;">.env</code> file in the project root.</p>
+    <div style="margin-top: 0.75rem; padding: 0.75rem; background: #0f172a; border-radius: 8px; font-family: monospace; font-size: 0.85rem;">
+      ANTHROPIC_API_KEY=sk-ant-...<br>
+      OPENAI_API_KEY=sk-...
+    </div>
+    <p style="margin-top: 0.75rem;">Ollama runs locally — no API key needed. Start it with <code style="background: #0f172a; padding: 0.15rem 0.5rem; border-radius: 4px; color: #818cf8;">ollama serve</code></p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedProvider = '{{ current.provider }}';
+let selectedModel = '{{ current.model }}';
+
+function selectProvider(providerId) {
+  selectedProvider = providerId;
+
+  // Update card borders
+  document.querySelectorAll('.provider-card').forEach(card => {
+    const isSelected = card.dataset.provider === providerId;
+    card.style.borderColor = isSelected ? '#818cf8' : '#334155';
+    const modelSelector = card.querySelector('.model-selector');
+    if (modelSelector) modelSelector.style.display = isSelected ? 'block' : 'none';
+  });
+
+  // Auto-select first model of new provider if current model doesn't belong
+  const providerCard = document.querySelector(`.provider-card[data-provider="${providerId}"]`);
+  const firstModel = providerCard.querySelector('.model-btn');
+  if (firstModel) {
+    selectedModel = firstModel.dataset.model;
+    updateModelButtons(providerId);
+  }
+
+  document.getElementById('save-area').style.display = 'block';
+}
+
+function selectModel(providerId, modelId) {
+  selectedProvider = providerId;
+  selectedModel = modelId;
+  updateModelButtons(providerId);
+  document.getElementById('save-area').style.display = 'block';
+}
+
+function updateModelButtons(providerId) {
+  document.querySelectorAll(`.model-btn[data-provider="${providerId}"]`).forEach(btn => {
+    if (btn.dataset.model === selectedModel) {
+      btn.className = 'btn btn-sm model-btn btn-primary';
+    } else {
+      btn.className = 'btn btn-sm model-btn btn-secondary';
+    }
+  });
+}
+
+async function saveSettings() {
+  const btn = document.getElementById('save-btn');
+  const status = document.getElementById('save-status');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    const res = await fetch('/settings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ provider: selectedProvider, model: selectedModel })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      status.style.color = '#10b981';
+      status.textContent = 'Settings saved! Using ' + selectedProvider + ' / ' + selectedModel;
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      status.style.color = '#ef4444';
+      status.textContent = data.error || 'Failed to save';
+    }
+  } catch(e) {
+    status.style.color = '#ef4444';
+    status.textContent = 'Error saving settings';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Settings';
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import page_header, stat_card, empty_state %}
+
+{% block title_extra %}— Idiom of the Day{% endblock %}
+
+{% block content %}
+{{ page_header("Idiom & Phrase of the Day", "Learn one useful English phrase every day") }}
+
+<div class="stats-grid">
+  {{ stat_card(total_idioms, "Phrases Learned", "#818cf8") }}
+  {{ stat_card(due_idiom_count, "Due for Review", "#f59e0b") }}
+</div>
+
+{% if today_idiom %}
+<div class="card" style="border-left: 3px solid #818cf8; border-width: 2px;">
+  <div class="card-title">Today's Phrase</div>
+  <div style="font-size: 1.4rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.5rem;">
+    "{{ today_idiom.phrase }}"
+  </div>
+  <span class="verdict" style="background: #1e1b4b; color: #a5b4fc;">{{ today_idiom.get('category', 'general') }}</span>
+
+  <div style="margin-top: 1rem; display: grid; gap: 0.75rem;">
+    <div style="padding: 0.75rem; background: #0f172a; border-radius: 8px;">
+      <div style="font-size: 0.8rem; color: #818cf8; font-weight: 600; margin-bottom: 0.25rem;">Meaning</div>
+      <div>{{ today_idiom.meaning }}</div>
+    </div>
+    <div style="padding: 0.75rem; background: #0f172a; border-radius: 8px;">
+      <div style="font-size: 0.8rem; color: #10b981; font-weight: 600; margin-bottom: 0.25rem;">Example</div>
+      <div style="font-style: italic;">{{ today_idiom.example }}</div>
+    </div>
+    <div style="padding: 0.75rem; background: #0f172a; border-radius: 8px;">
+      <div style="font-size: 0.8rem; color: #f59e0b; font-weight: 600; margin-bottom: 0.25rem;">Hinglish Explanation</div>
+      <div>{{ today_idiom.explanation_hi }}</div>
+    </div>
+    {% if today_idiom.usage_tip %}
+    <div style="padding: 0.75rem; background: #0f172a; border-radius: 8px;">
+      <div style="font-size: 0.8rem; color: #ec4899; font-weight: 600; margin-bottom: 0.25rem;">When to Use</div>
+      <div>{{ today_idiom.usage_tip }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+    <button class="btn btn-sm btn-secondary" onclick="toggleBookmark('{{ today_idiom.id }}', this)">
+      {{ '⭐ Bookmarked' if today_idiom.bookmarked else '☆ Bookmark' }}
+    </button>
+  </div>
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 2rem;">
+  <div style="font-size: 2rem; margin-bottom: 1rem;">💡</div>
+  <p style="color: #94a3b8; margin-bottom: 1rem;">Loading today's idiom...</p>
+  <button class="btn btn-primary" onclick="fetchIdiom()">Get Today's Idiom</button>
+  <div id="spinner" style="display:none; margin-top: 1rem;">
+    <div class="spinner"></div>
+    <p style="margin-top: 0.5rem; color: #94a3b8;">Picking a phrase for you...</p>
+  </div>
+</div>
+{% endif %}
+
+{% if past_idioms %}
+<div style="margin-top: 2rem;">
+  <h2 style="font-size: 1.2rem; margin-bottom: 1rem;">Past Phrases ({{ past_idioms | length }})</h2>
+  {% for entry in past_idioms %}
+  <div class="card" style="padding: 1rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div>
+        <div style="font-weight: 600; color: #f1f5f9;">"{{ entry.phrase }}"</div>
+        <div style="font-size: 0.85rem; color: #94a3b8; margin-top: 0.25rem;">{{ entry.meaning }}</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span style="font-size: 0.75rem; color: #64748b;">{{ entry.date }}</span>
+        {% if entry.times_reviewed >= 3 %}
+        <span class="verdict verdict-natural" style="font-size: 0.7rem;">Mastered</span>
+        {% elif entry.times_reviewed > 0 %}
+        <span class="verdict verdict-unnatural" style="font-size: 0.7rem;">Learning</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function fetchIdiom() {
+  document.getElementById('spinner').style.display = 'block';
+  try {
+    const res = await fetch('/idiom/generate', { method: 'POST' });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+    location.reload();
+  } catch(e) {
+    alert('Failed to fetch idiom.');
+    document.getElementById('spinner').style.display = 'none';
+  }
+}
+
+async function toggleBookmark(id, btn) {
+  const res = await fetch(`/entry/${id}/bookmark`, { method: 'POST' });
+  const data = await res.json();
+  btn.textContent = data.bookmarked ? '⭐ Bookmarked' : '☆ Bookmark';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import empty_state, page_header, stat_card, score_display %}
+
+{% block title_extra %}— Daily Challenge{% endblock %}
+
+{% block content %}
+{{ page_header("Daily Challenge", "A new writing prompt every day to push your skills") }}
+
+<div class="stats-grid">
+  {{ stat_card(challenge_streak, "Challenge Streak", "#f59e0b") }}
+  {{ stat_card(total_challenges, "Completed", "#10b981") }}
+</div>
+
+<div class="card" style="border-left: 3px solid #f59e0b;">
+  <div class="card-title">Today's Challenge</div>
+  <div style="font-size: 1.15rem; color: #f1f5f9; margin-bottom: 0.5rem;">{{ challenge.prompt }}</div>
+  <div style="display: flex; gap: 0.5rem;">
+    <span class="verdict verdict-unnatural">{{ challenge.category }}</span>
+    <span class="verdict" style="background: #1e1b4b; color: #a5b4fc;">{{ challenge.difficulty }}</span>
+  </div>
+</div>
+
+{% if not today_done %}
+<div class="card">
+  <div class="card-title">Your Response</div>
+  <textarea id="challenge-input" class="input" rows="5" placeholder="Write your response here..."></textarea>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+    <span id="char-count" style="font-size: 0.8rem; color: #64748b;">0 characters</span>
+    <button id="submit-btn" class="btn btn-primary" onclick="submitChallenge()">Submit & Analyze</button>
+  </div>
+  <div id="spinner" class="spinner-container" style="display:none; text-align:center; padding: 2rem;">
+    <div class="spinner"></div>
+    <p style="margin-top: 1rem; color: #94a3b8;">Analyzing your response...</p>
+  </div>
+</div>
+
+<div id="result" style="display:none;"></div>
+
+{% else %}
+<div class="card" style="border-color: #10b981;">
+  <div class="card-title">Today's Response</div>
+  <div style="font-size: 1.05rem; margin-bottom: 0.5rem;">{{ today_entry.original }}</div>
+  {% if today_entry.original != today_entry.corrected %}
+  <div style="color: #10b981; font-style: italic; margin-bottom: 0.5rem;">{{ today_entry.corrected }}</div>
+  {% endif %}
+  <div style="display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem;">
+    {{ score_display(today_entry.score, "small") }}
+    <span class="verdict verdict-{{ today_entry.verdict }}">{{ today_entry.verdict | verdict_emoji }} {{ today_entry.verdict | capitalize }}</span>
+  </div>
+  <div style="margin-top: 0.75rem; padding: 0.75rem; background: #0f172a; border-radius: 8px; font-size: 0.9rem;">
+    {{ today_entry.explanation }}
+  </div>
+  <div style="margin-top: 0.5rem; color: #818cf8; font-size: 0.85rem;">{{ today_entry.rule }}</div>
+</div>
+{% endif %}
+
+{% if past_challenges %}
+<div style="margin-top: 2rem;">
+  <h2 style="font-size: 1.2rem; margin-bottom: 1rem;">Recent Challenges</h2>
+  {% for entry in past_challenges[:5] %}
+  <div class="sentence-card">
+    <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 0.25rem;">{{ entry.challenge_prompt }}</div>
+    <div class="sentence-original">{{ entry.original }}</div>
+    {% if entry.original != entry.corrected %}
+    <div class="sentence-corrected">{{ entry.corrected }}</div>
+    {% endif %}
+    <div class="sentence-meta">
+      <span class="verdict verdict-{{ entry.verdict }}">{{ entry.verdict | verdict_emoji }} {{ entry.verdict | capitalize }}</span>
+      <span>{{ entry.date }}</span>
+      <span style="color: {{ entry.score | score_color }}; font-weight: 600;">{{ entry.score }}/10</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const input = document.getElementById('challenge-input');
+if (input) {
+  input.addEventListener('input', () => {
+    document.getElementById('char-count').textContent = input.value.length + ' characters';
+  });
+}
+
+async function submitChallenge() {
+  const text = document.getElementById('challenge-input').value.trim();
+  if (!text) return alert('Please write something first!');
+
+  document.getElementById('submit-btn').style.display = 'none';
+  document.getElementById('spinner').style.display = 'block';
+
+  try {
+    const res = await fetch('/challenge/submit', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ text })
+    });
+    const data = await res.json();
+    if (data.error) {
+      alert(data.error);
+      document.getElementById('submit-btn').style.display = '';
+      document.getElementById('spinner').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('spinner').style.display = 'none';
+    const resultDiv = document.getElementById('result');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = `
+      <div class="card" style="border-color: #10b981;">
+        <div class="card-title">Analysis Result</div>
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+          <div class="score-circle" style="border-color: ${data.score >= 8 ? '#10b981' : data.score >= 5 ? '#f59e0b' : '#ef4444'}; color: ${data.score >= 8 ? '#10b981' : data.score >= 5 ? '#f59e0b' : '#ef4444'}">
+            ${data.score}<span style="font-size:0.5em">/10</span>
+          </div>
+          <span class="verdict verdict-${data.verdict}">${data.verdict}</span>
+        </div>
+        ${data.original !== data.corrected ? `<div style="color: #10b981; font-style: italic; margin-bottom: 0.75rem;">${data.corrected}</div>` : ''}
+        <div style="padding: 0.75rem; background: #0f172a; border-radius: 8px; font-size: 0.9rem;">${data.explanation}</div>
+        <div style="margin-top: 0.5rem; color: #818cf8; font-size: 0.85rem;">${data.rule}</div>
+        <div style="margin-top: 1rem; text-align: center;">
+          <a href="/challenge" class="btn btn-secondary">Refresh Page</a>
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    alert('Something went wrong. Please try again.');
+    document.getElementById('submit-btn').style.display = '';
+    document.getElementById('spinner').style.display = 'none';
+  }
+}
+</script>
+{% endblock %}

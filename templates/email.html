@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import page_header, score_bar, stat_card %}
+
+{% block title_extra %}— Email Writing Practice{% endblock %}
+
+{% block content %}
+{{ page_header("Email & Message Writing", "Practice professional written communication with AI feedback") }}
+
+<div class="card">
+  <div class="card-title">Choose a Scenario</div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+    {% set templates = [
+      ("manager_email", "📋", "Email to Manager", "Request leave, share updates, ask questions"),
+      ("client_reply", "💼", "Client Reply", "Respond professionally to client queries"),
+      ("cold_email", "📨", "Cold Email", "Reach out to someone you don't know"),
+      ("linkedin_message", "🔗", "LinkedIn Message", "Professional networking message"),
+      ("decline_meeting", "🚫", "Decline a Meeting", "Politely say no with alternatives"),
+      ("follow_up", "🔄", "Follow-up Email", "Persistent but polite follow-ups"),
+    ] %}
+    {% for value, icon, label, desc in templates %}
+    <button class="template-btn card" onclick="selectTemplate('{{ value }}', '{{ label }}')"
+            style="cursor: pointer; text-align: left; padding: 1rem; transition: all 0.2s; border: 2px solid #334155;"
+            data-template="{{ value }}">
+      <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">{{ icon }}</div>
+      <div style="font-weight: 600; color: #f1f5f9; font-size: 0.95rem;">{{ label }}</div>
+      <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem;">{{ desc }}</div>
+    </button>
+    {% endfor %}
+  </div>
+</div>
+
+<div id="writing-area" style="display: none;">
+  <div class="card">
+    <div class="card-title">Write Your <span id="template-label"></span></div>
+    <textarea id="email-input" class="input" rows="8" placeholder="Write your email or message here..."></textarea>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+      <span id="word-count" style="font-size: 0.8rem; color: #64748b;">0 words</span>
+      <div style="display: flex; gap: 0.5rem;">
+        <button class="btn btn-secondary" onclick="clearForm()">Clear</button>
+        <button id="analyze-btn" class="btn btn-primary" onclick="analyzeEmail()">Analyze</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="spinner" style="display:none; text-align:center; padding: 2rem;">
+  <div class="spinner"></div>
+  <p style="margin-top: 1rem; color: #94a3b8;">Analyzing tone, formality & clarity...</p>
+</div>
+
+<div id="result" style="display:none;"></div>
+
+{% if past_emails %}
+<div style="margin-top: 2rem;">
+  <h2 style="font-size: 1.2rem; margin-bottom: 1rem;">Past Practice ({{ past_emails | length }})</h2>
+  {% for entry in past_emails[:5] %}
+  <div class="sentence-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+      <span class="verdict verdict-unnatural">{{ entry.email_type | replace('_', ' ') | title }}</span>
+      <span style="font-size: 0.8rem; color: #64748b;">{{ entry.date }}</span>
+    </div>
+    <div class="sentence-original" style="font-size: 0.9rem; white-space: pre-line;">{{ entry.original[:150] }}{{ '...' if entry.original | length > 150 }}</div>
+    <div style="display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.8rem;">
+      <span style="color: {{ entry.tone_score | score_color }};">Tone: {{ entry.tone_score }}/10</span>
+      <span style="color: {{ entry.formality_score | score_color }};">Formality: {{ entry.formality_score }}/10</span>
+      <span style="color: {{ entry.clarity_score | score_color }};">Clarity: {{ entry.clarity_score }}/10</span>
+      <span style="color: {{ entry.overall_score | score_color }}; font-weight: 600;">Overall: {{ entry.overall_score }}/10</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedTemplate = '';
+
+function selectTemplate(value, label) {
+  selectedTemplate = value;
+  document.getElementById('template-label').textContent = label;
+  document.getElementById('writing-area').style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+
+  document.querySelectorAll('.template-btn').forEach(btn => {
+    btn.style.borderColor = btn.dataset.template === value ? '#818cf8' : '#334155';
+  });
+
+  document.getElementById('email-input').focus();
+}
+
+const emailInput = document.getElementById('email-input');
+if (emailInput) {
+  emailInput.addEventListener('input', () => {
+    const words = emailInput.value.trim().split(/\s+/).filter(w => w).length;
+    document.getElementById('word-count').textContent = words + ' words';
+  });
+}
+
+async function analyzeEmail() {
+  const text = document.getElementById('email-input').value.trim();
+  if (!text) return alert('Please write something first!');
+  if (!selectedTemplate) return alert('Please select a template first.');
+
+  document.getElementById('analyze-btn').disabled = true;
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+
+  try {
+    const res = await fetch('/email/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ text, template: selectedTemplate })
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    document.getElementById('spinner').style.display = 'none';
+    const r = document.getElementById('result');
+    r.style.display = 'block';
+
+    const scoreColor = s => s >= 8 ? '#10b981' : s >= 5 ? '#f59e0b' : '#ef4444';
+
+    r.innerHTML = `
+      <div class="card" style="border-color: ${scoreColor(data.overall_score)}; border-width: 2px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <div class="card-title" style="margin: 0;">Analysis Result</div>
+          <div class="score-circle" style="border-color: ${scoreColor(data.overall_score)}; color: ${scoreColor(data.overall_score)}">
+            ${data.overall_score}<span style="font-size:0.5em">/10</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          ${makeScoreBar('Tone', data.tone_score, data.tone_feedback)}
+          ${makeScoreBar('Formality', data.formality_score, data.formality_feedback)}
+          ${makeScoreBar('Clarity', data.clarity_score, data.clarity_feedback)}
+        </div>
+
+        ${data.tips && data.tips.length ? `
+        <div style="margin-bottom: 1.5rem;">
+          <div style="font-size: 0.85rem; color: #818cf8; font-weight: 600; margin-bottom: 0.5rem;">Tips:</div>
+          <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.9rem; color: #cbd5e1;">
+            ${data.tips.map(t => `<li style="margin-bottom: 0.25rem;">${t}</li>`).join('')}
+          </ul>
+        </div>` : ''}
+
+        <div style="padding: 1rem; background: #064e3b20; border: 1px solid #10b98140; border-radius: 8px;">
+          <div style="font-size: 0.85rem; color: #10b981; font-weight: 600; margin-bottom: 0.5rem;">Improved Version:</div>
+          <div style="font-size: 0.95rem; color: #e2e8f0; white-space: pre-line;">${data.corrected}</div>
+        </div>
+
+        <div style="text-align: center; margin-top: 1.5rem;">
+          <button class="btn btn-secondary" onclick="clearForm()">Try Another</button>
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    alert('Something went wrong.');
+  } finally {
+    document.getElementById('analyze-btn').disabled = false;
+    document.getElementById('spinner').style.display = 'none';
+  }
+}
+
+function makeScoreBar(label, score, feedback) {
+  const color = score >= 8 ? '#10b981' : score >= 5 ? '#f59e0b' : '#ef4444';
+  return `
+    <div style="margin-bottom: 1rem;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+        <span style="font-size: 0.85rem; color: #cbd5e1;">${label}</span>
+        <span style="font-size: 0.85rem; font-weight: 600; color: ${color}">${score}/10</span>
+      </div>
+      <div style="background: #334155; border-radius: 4px; height: 8px; overflow: hidden; margin-bottom: 0.25rem;">
+        <div style="background: ${color}; height: 100%; width: ${score * 10}%; border-radius: 4px; transition: width 0.5s;"></div>
+      </div>
+      ${feedback ? `<div style="font-size: 0.8rem; color: #94a3b8;">${feedback}</div>` : ''}
+    </div>
+  `;
+}
+
+function clearForm() {
+  document.getElementById('email-input').value = '';
+  document.getElementById('word-count').textContent = '0 words';
+  document.getElementById('result').style.display = 'none';
+}
+</script>
+{% endblock %}

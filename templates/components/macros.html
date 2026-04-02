@@ -1,0 +1,113 @@
+{# Reusable Jinja2 macros for English Coach UI components #}
+
+{% macro score_display(score, size="normal") %}
+{% if size == "small" %}
+<span class="score-circle score-sm" style="border-color: {{ score | score_color }}; color: {{ score | score_color }}">
+  {{ score }}
+</span>
+{% else %}
+<div class="score-circle" style="border-color: {{ score | score_color }}; color: {{ score | score_color }}">
+  {{ score }}<span style="font-size: 0.5em">/10</span>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro verdict_badge(verdict) %}
+<span class="verdict verdict-{{ verdict }}">{{ verdict | verdict_emoji }} {{ verdict | capitalize }}</span>
+{% endmacro %}
+
+{% macro empty_state(icon, title, subtitle="", cta_text="", cta_url="") %}
+<div class="empty-state">
+  <div style="font-size: 3rem; margin-bottom: 1rem;">{{ icon }}</div>
+  <h3>{{ title }}</h3>
+  {% if subtitle %}<p style="color: #94a3b8; margin-top: 0.5rem;">{{ subtitle }}</p>{% endif %}
+  {% if cta_text and cta_url %}
+  <a href="{{ cta_url }}" class="btn btn-primary" style="margin-top: 1rem;">{{ cta_text }}</a>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro loading_spinner() %}
+<div class="spinner-container" style="display:none;">
+  <div class="spinner"></div>
+  <p style="margin-top: 1rem; color: #94a3b8;">Analyzing...</p>
+</div>
+{% endmacro %}
+
+{% macro stat_card(value, label, color="#818cf8") %}
+<div class="stat-card">
+  <div class="stat-value" style="color: {{ color }}">{{ value }}</div>
+  <div class="stat-label">{{ label }}</div>
+</div>
+{% endmacro %}
+
+{% macro score_bar(label, score, max_score=10) %}
+<div style="margin-bottom: 0.75rem;">
+  <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+    <span style="font-size: 0.85rem; color: #cbd5e1;">{{ label }}</span>
+    <span style="font-size: 0.85rem; font-weight: 600; color: {{ score | score_color }}">{{ score }}/{{ max_score }}</span>
+  </div>
+  <div style="background: #334155; border-radius: 4px; height: 8px; overflow: hidden;">
+    <div style="background: {{ score | score_color }}; height: 100%; width: {{ (score / max_score * 100) | int }}%; border-radius: 4px; transition: width 0.5s;"></div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro sentence_card(entry, show_bookmark=true, show_notes=true) %}
+<div class="sentence-card" data-id="{{ entry.id }}">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+    <div style="flex: 1;">
+      <div style="font-size: 1.1rem; margin-bottom: 0.5rem;">{{ entry.original }}</div>
+      {% if entry.original != entry.get('corrected', entry.original) %}
+      <div style="color: #10b981; font-style: italic; margin-bottom: 0.5rem;">{{ entry.corrected }}</div>
+      {% endif %}
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      {% if entry.verdict is defined %}
+      {{ verdict_badge(entry.verdict) }}
+      {% endif %}
+      {% if entry.score is defined %}
+      {{ score_display(entry.score, "small") }}
+      {% endif %}
+    </div>
+  </div>
+
+  <div style="margin-top: 0.5rem; font-size: 0.9rem; color: #94a3b8;">
+    <span>{{ entry.date }}</span>
+    {% if entry.rule is defined %}
+    <span style="margin-left: 1rem; color: #818cf8;">{{ entry.rule }}</span>
+    {% endif %}
+    {% if entry.times_reviewed is defined and entry.times_reviewed > 0 %}
+    <span style="margin-left: 1rem;">Reviewed {{ entry.times_reviewed }}x</span>
+    {% endif %}
+  </div>
+
+  {% if entry.explanation is defined %}
+  <div style="margin-top: 0.75rem; padding: 0.75rem; background: #0f172a; border-radius: 8px; font-size: 0.9rem;">
+    {{ entry.explanation }}
+  </div>
+  {% endif %}
+
+  {% if show_bookmark %}
+  <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+    <button class="bookmark-btn btn btn-sm btn-secondary" onclick="toggleBookmark('{{ entry.id }}', this)">
+      {{ entry.get('bookmarked', false) and 'Bookmarked' or 'Bookmark' }}
+    </button>
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro page_header(title, subtitle="", action_text="", action_url="") %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+  <div>
+    <h1 style="margin: 0;">{{ title }}</h1>
+    {% if subtitle %}
+    <p style="color: #94a3b8; margin-top: 0.25rem;">{{ subtitle }}</p>
+    {% endif %}
+  </div>
+  {% if action_text and action_url %}
+  <a href="{{ action_url }}" class="btn btn-primary">{{ action_text }}</a>
+  {% endif %}
+</div>
+{% endmacro %}

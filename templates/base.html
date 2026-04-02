@@ -319,12 +319,102 @@
             margin-bottom: 1rem;
         }
 
+        /* Score circle small variant */
+        .score-sm {
+            width: 32px;
+            height: 32px;
+            font-size: 0.8rem;
+            border-width: 2px;
+        }
+
+        /* Dropdown nav */
+        .nav-dropdown {
+            position: relative;
+        }
+        .nav-dropdown-toggle {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            color: #94a3b8;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: none;
+            border: none;
+            font-family: inherit;
+        }
+        .nav-dropdown-toggle:hover, .nav-dropdown.open .nav-dropdown-toggle {
+            background: #334155;
+            color: #e2e8f0;
+        }
+        .nav-dropdown-toggle.has-active {
+            background: #3730a3;
+            color: white;
+        }
+        .nav-dropdown-toggle::after {
+            content: '';
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid currentColor;
+            margin-left: 2px;
+        }
+        .nav-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 0.5rem;
+            min-width: 220px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 200;
+            margin-top: 4px;
+        }
+        .nav-dropdown.open .nav-dropdown-menu {
+            display: block;
+        }
+        .nav-dropdown-menu a {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+        .nav-dropdown-menu a:hover {
+            background: #334155;
+            color: #e2e8f0;
+        }
+        .nav-dropdown-menu a.active {
+            background: #3730a3;
+            color: white;
+        }
+        .nav-dropdown-menu .menu-icon {
+            width: 18px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .nav-dropdown-divider {
+            height: 1px;
+            background: #334155;
+            margin: 0.25rem 0;
+        }
+
         /* Responsive */
         @media (max-width: 640px) {
             .navbar { padding: 0 1rem; }
             .nav-brand { margin-right: 1rem; font-size: 1rem; }
             .container { padding: 1rem; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .nav-dropdown-menu { min-width: 180px; }
         }
     </style>
 </head>
@@ -333,16 +423,40 @@
         <div class="nav-brand">📝 English Coach</div>
         <div class="nav-links">
             <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Dashboard</a>
-            <a href="/session" class="nav-link {% if request.path == '/session' %}active{% endif %}">Practice</a>
-            <a href="/review" class="nav-link {% if request.path == '/review' %}active{% endif %}">
-                Review
-                {% if due_count is defined and due_count > 0 %}
-                <span class="nav-badge">{{ due_count }}</span>
-                {% endif %}
-            </a>
+
+            <div class="nav-dropdown" onclick="toggleDropdown(this, event)">
+                <button class="nav-dropdown-toggle {% if request.path in ['/session', '/email', '/compare', '/conversation'] %}has-active{% endif %}">Practice</button>
+                <div class="nav-dropdown-menu">
+                    <a href="/session" {% if request.path == '/session' %}class="active"{% endif %}><span class="menu-icon">✍️</span> Sentences</a>
+                    <a href="/email" {% if request.path == '/email' %}class="active"{% endif %}><span class="menu-icon">📧</span> Email Writing</a>
+                    <a href="/compare" {% if request.path == '/compare' %}class="active"{% endif %}><span class="menu-icon">⚖️</span> Compare Sentences</a>
+                    <a href="/conversation" {% if request.path == '/conversation' %}class="active"{% endif %}><span class="menu-icon">💬</span> Conversation Replay</a>
+                </div>
+            </div>
+
+            <div class="nav-dropdown" onclick="toggleDropdown(this, event)">
+                <button class="nav-dropdown-toggle {% if request.path in ['/review', '/vocabulary', '/drills', '/challenge', '/idiom'] %}has-active{% endif %}">
+                    Learn
+                    {% if due_count is defined and due_count > 0 %}<span class="nav-badge">{{ due_count }}</span>{% endif %}
+                </button>
+                <div class="nav-dropdown-menu">
+                    <a href="/review" {% if request.path == '/review' %}class="active"{% endif %}>
+                        <span class="menu-icon">🔄</span> Review
+                        {% if due_count is defined and due_count > 0 %}<span class="nav-badge">{{ due_count }}</span>{% endif %}
+                    </a>
+                    <a href="/vocabulary" {% if request.path == '/vocabulary' %}class="active"{% endif %}><span class="menu-icon">📚</span> Vocabulary Bank</a>
+                    <a href="/drills" {% if request.path == '/drills' %}class="active"{% endif %}><span class="menu-icon">🎯</span> Grammar Drills</a>
+                    <div class="nav-dropdown-divider"></div>
+                    <a href="/challenge" {% if request.path == '/challenge' %}class="active"{% endif %}><span class="menu-icon">🏆</span> Daily Challenge</a>
+                    <a href="/idiom" {% if request.path == '/idiom' %}class="active"{% endif %}><span class="menu-icon">💡</span> Idiom of the Day</a>
+                </div>
+            </div>
+
             <a href="/history" class="nav-link {% if request.path == '/history' %}active{% endif %}">History</a>
-            <a href="/notes" class="nav-link {% if request.path == '/notes' %}active{% endif %}">Notes</a>
             <a href="/report" class="nav-link {% if request.path == '/report' %}active{% endif %}">Report</a>
+        </div>
+        <div style="margin-left: auto;">
+            <a href="/settings" class="nav-link {% if request.path == '/settings' %}active{% endif %}" title="Settings" style="font-size: 1.1rem;">⚙️</a>
         </div>
     </nav>
 
@@ -350,6 +464,16 @@
         {% block content %}{% endblock %}
     </div>
 
+    <script>
+    function toggleDropdown(el, e) {
+        e.stopPropagation();
+        document.querySelectorAll('.nav-dropdown').forEach(d => { if (d !== el) d.classList.remove('open'); });
+        el.classList.toggle('open');
+    }
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.nav-dropdown').forEach(d => d.classList.remove('open'));
+    });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

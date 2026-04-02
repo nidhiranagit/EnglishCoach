@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import page_header, empty_state %}
+
+{% block title_extra %}— Conversation Replay{% endblock %}
+
+{% block content %}
+{{ page_header("Conversation Replay", "Write a dialogue — see how a fluent speaker would say the same things") }}
+
+<div class="card">
+  <div class="card-title">Write Your Conversation</div>
+  <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 1rem;">
+    Write one line per turn. Example: a chat with a colleague, a phone call, or any dialogue you had recently.
+  </p>
+  <textarea id="conv-input" class="input" rows="8" placeholder="Hi, I am wanting to discuss about the project.
+Yes, what is the update?
+We are having some delay in the delivery.
+Ok, can you tell me the reason?
+The vendor is not responding from last week.
+I will look into this matter and revert back."></textarea>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+    <span id="line-count" style="font-size: 0.8rem; color: #64748b;">0 lines</span>
+    <button id="improve-btn" class="btn btn-primary" onclick="improveConversation()">Improve Conversation</button>
+  </div>
+</div>
+
+<div id="spinner" style="display:none; text-align:center; padding: 2rem;">
+  <div class="spinner"></div>
+  <p style="margin-top: 1rem; color: #94a3b8;">Improving each line of your conversation...</p>
+</div>
+
+<div id="result" style="display:none;"></div>
+
+{% if past_conversations %}
+<div style="margin-top: 2rem;">
+  <h2 style="font-size: 1.2rem; margin-bottom: 1rem;">Past Conversations ({{ past_conversations | length }})</h2>
+  {% for entry in past_conversations[:5] %}
+  <div class="card" style="padding: 1rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+      <span style="font-size: 0.85rem; color: #94a3b8;">{{ entry.line_count }} lines</span>
+      <span style="font-size: 0.8rem; color: #64748b;">{{ entry.date }}</span>
+    </div>
+    <div style="font-size: 0.9rem; color: #cbd5e1;">{{ entry.original[:120] }}{{ '...' if entry.original | length > 120 }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const convInput = document.getElementById('conv-input');
+if (convInput) {
+  convInput.addEventListener('input', () => {
+    const lines = convInput.value.split('\n').filter(l => l.trim()).length;
+    document.getElementById('line-count').textContent = lines + ' lines';
+  });
+}
+
+async function improveConversation() {
+  const text = document.getElementById('conv-input').value.trim();
+  if (!text) return alert('Please write a conversation first!');
+
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return alert('Please write at least 2 lines of dialogue.');
+
+  document.getElementById('improve-btn').disabled = true;
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+
+  try {
+    const res = await fetch('/conversation/improve', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ lines })
+    });
+    const data = await res.json();
+    if (data.error) { alert(data.error); return; }
+
+    document.getElementById('spinner').style.display = 'none';
+    const r = document.getElementById('result');
+    r.style.display = 'block';
+
+    let html = `<div class="card" style="border-color: #818cf8; border-width: 2px;">
+      <div class="card-title">Improved Conversation</div>
+      <div style="display: grid; gap: 0;">`;
+
+    const colors = ['#818cf8', '#10b981'];
+
+    data.lines.forEach((line, i) => {
+      const speakerColor = colors[i % 2];
+      const isChanged = line.original.trim().toLowerCase() !== line.improved.trim().toLowerCase();
+
+      html += `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; border-bottom: 1px solid #334155;">
+          <div>
+            <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 0.25rem;">ORIGINAL</div>
+            <div style="padding: 0.75rem; background: #0f172a; border-radius: 8px; border-left: 3px solid ${isChanged ? '#ef4444' : '#10b981'};">
+              ${line.original}
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 0.25rem;">IMPROVED</div>
+            <div style="padding: 0.75rem; background: #0f172a; border-radius: 8px; border-left: 3px solid #10b981;">
+              ${line.improved}
+            </div>
+          </div>
+          ${line.explanation ? `
+          <div style="grid-column: 1 / -1; font-size: 0.8rem; color: #94a3b8; padding: 0 0.5rem;">
+            💡 ${line.explanation}
+          </div>` : ''}
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+
+    if (data.overall_tips && data.overall_tips.length) {
+      html += `
+        <div style="margin-top: 1.5rem; padding: 1rem; background: #0f172a; border-radius: 8px;">
+          <div style="font-size: 0.85rem; color: #818cf8; font-weight: 600; margin-bottom: 0.5rem;">Overall Tips:</div>
+          <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.9rem; color: #cbd5e1;">
+            ${data.overall_tips.map(t => `<li style="margin-bottom: 0.25rem;">${t}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    html += `
+        <div style="text-align: center; margin-top: 1.5rem;">
+          <button class="btn btn-secondary" onclick="resetForm()">Try Another</button>
+        </div>
+      </div>
+    `;
+
+    r.innerHTML = html;
+  } catch(e) {
+    alert('Something went wrong.');
+  } finally {
+    document.getElementById('improve-btn').disabled = false;
+    document.getElementById('spinner').style.display = 'none';
+  }
+}
+
+function resetForm() {
+  document.getElementById('conv-input').value = '';
+  document.getElementById('line-count').textContent = '0 lines';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('conv-input').focus();
+}
+</script>
+{% endblock %}

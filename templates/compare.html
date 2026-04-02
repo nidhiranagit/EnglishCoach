@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import page_header, score_display %}
+
+{% block title_extra %}— Compare Sentences{% endblock %}
+
+{% block content %}
+{{ page_header("Sentence Comparison", "Type two versions of a sentence — AI tells you which is better and why") }}
+
+<div class="card">
+  <div class="card-title">Enter Two Versions</div>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+    <div>
+      <label style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.5rem; display: block;">Version A</label>
+      <textarea id="sentence-a" class="input" rows="3" placeholder="Type first version here..."></textarea>
+    </div>
+    <div>
+      <label style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.5rem; display: block;">Version B</label>
+      <textarea id="sentence-b" class="input" rows="3" placeholder="Type second version here..."></textarea>
+    </div>
+  </div>
+  <div style="text-align: center; margin-top: 1rem;">
+    <button id="compare-btn" class="btn btn-primary" onclick="compareSentences()">Compare</button>
+  </div>
+</div>
+
+<div id="spinner" style="display:none; text-align:center; padding: 2rem;">
+  <div class="spinner"></div>
+  <p style="margin-top: 1rem; color: #94a3b8;">Comparing sentences...</p>
+</div>
+
+<div id="result" style="display:none;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function compareSentences() {
+  const a = document.getElementById('sentence-a').value.trim();
+  const b = document.getElementById('sentence-b').value.trim();
+  if (!a || !b) return alert('Please enter both sentences.');
+
+  document.getElementById('compare-btn').disabled = true;
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+
+  try {
+    const res = await fetch('/compare', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ sentence_a: a, sentence_b: b })
+    });
+    const data = await res.json();
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
+
+    document.getElementById('spinner').style.display = 'none';
+    const resultDiv = document.getElementById('result');
+    resultDiv.style.display = 'block';
+
+    const winnerLabel = data.winner === 'a' ? 'Version A' : 'Version B';
+    const winnerColor = '#10b981';
+    const loserColor = '#ef4444';
+
+    resultDiv.innerHTML = `
+      <div class="card" style="border-color: ${winnerColor}; border-width: 2px;">
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+          <div style="font-size: 1.3rem; font-weight: 700; color: ${winnerColor};">🏆 ${winnerLabel} Wins!</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <div style="padding: 1rem; background: #0f172a; border-radius: 8px; border-left: 3px solid ${data.winner === 'a' ? winnerColor : loserColor};">
+            <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem;">Version A</div>
+            <div style="font-size: 1.05rem; margin-bottom: 0.75rem;">${data.sentence_a || a}</div>
+            <div class="score-circle score-sm" style="border-color: ${data.score_a >= 8 ? '#10b981' : data.score_a >= 5 ? '#f59e0b' : '#ef4444'}; color: ${data.score_a >= 8 ? '#10b981' : data.score_a >= 5 ? '#f59e0b' : '#ef4444'}; display: inline-flex;">
+              ${data.score_a}
+            </div>
+          </div>
+          <div style="padding: 1rem; background: #0f172a; border-radius: 8px; border-left: 3px solid ${data.winner === 'b' ? winnerColor : loserColor};">
+            <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem;">Version B</div>
+            <div style="font-size: 1.05rem; margin-bottom: 0.75rem;">${data.sentence_b || b}</div>
+            <div class="score-circle score-sm" style="border-color: ${data.score_b >= 8 ? '#10b981' : data.score_b >= 5 ? '#f59e0b' : '#ef4444'}; color: ${data.score_b >= 8 ? '#10b981' : data.score_b >= 5 ? '#f59e0b' : '#ef4444'}; display: inline-flex;">
+              ${data.score_b}
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 1rem; background: #0f172a; border-radius: 8px; margin-bottom: 1rem;">
+          <div style="font-size: 0.85rem; color: #818cf8; font-weight: 600; margin-bottom: 0.5rem;">Why?</div>
+          <div style="font-size: 0.95rem;">${data.explanation}</div>
+        </div>
+
+        ${data.differences && data.differences.length > 0 ? `
+        <div style="margin-bottom: 1rem;">
+          <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 600; margin-bottom: 0.5rem;">Key Differences:</div>
+          <ul style="margin: 0; padding-left: 1.25rem; font-size: 0.9rem; color: #cbd5e1;">
+            ${data.differences.map(d => `<li style="margin-bottom: 0.25rem;">${d}</li>`).join('')}
+          </ul>
+        </div>
+        ` : ''}
+
+        <div style="padding: 1rem; background: #064e3b20; border: 1px solid #10b98140; border-radius: 8px;">
+          <div style="font-size: 0.85rem; color: #10b981; font-weight: 600; margin-bottom: 0.25rem;">Best Version:</div>
+          <div style="font-size: 1.05rem; color: #10b981; font-style: italic;">${data.improved}</div>
+        </div>
+
+        <div style="text-align: center; margin-top: 1.5rem;">
+          <button class="btn btn-secondary" onclick="resetForm()">Compare Again</button>
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    alert('Something went wrong. Please try again.');
+  } finally {
+    document.getElementById('compare-btn').disabled = false;
+    document.getElementById('spinner').style.display = 'none';
+  }
+}
+
+function resetForm() {
+  document.getElementById('sentence-a').value = '';
+  document.getElementById('sentence-b').value = '';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('sentence-a').focus();
+}
+</script>
+{% endblock %}
