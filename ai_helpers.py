@@ -172,6 +172,75 @@ Return ONLY valid JSON:
                          ["phrase", "meaning", "example", "explanation_hi"], max_tokens=400)
 
 
+def roleplay_respond(scenario_id: str, ai_role_prompt: str, history: list[dict],
+                     user_message: str, metric_categories: list[str]) -> dict:
+    """
+    Generate an in-character AI response, English feedback, live metrics,
+    and predicted next questions.
+    """
+    history_text = ""
+    for turn in history[-10:]:
+        speaker = "You" if turn["role"] == "ai" else "User"
+        history_text += f"{speaker}: {turn['text']}\n"
+
+    cats_json = ", ".join(f'"{c}"' for c in metric_categories)
+    cats_schema = ",\n".join(
+        f'      {{\"name\": \"{c}\", \"score\": 1-10, \"trend\": \"up\"|\"down\"|\"same\", \"note\": \"one-line why\"}}'
+        for c in metric_categories
+    )
+
+    prompt = f"""{ai_role_prompt}
+
+You must do ALL of the following in a single JSON response:
+
+1. RESPOND in character (2-4 sentences, push conversation forward naturally).
+2. EVALUATE the user's last English message for quality.
+3. RATE the user across specific metric categories based on the FULL conversation so far.
+4. PREDICT the 5 most likely next questions/topics you (the AI character) might bring up based on what the user has said.
+
+Return ONLY valid JSON:
+{{
+  "response": "your in-character reply here",
+  "correction": {{
+    "verdict": "natural" | "unnatural" | "incorrect",
+    "corrected": "corrected version (same if natural)",
+    "tip": "one-line Hinglish tip"
+  }},
+  "metrics": {{
+    "overall_rating": 1-10,
+    "overall_impression": "one-line summary of how user is doing overall",
+    "categories": [
+{cats_schema}
+    ],
+    "english": {{
+      "fluency": 1-10,
+      "grammar": 1-10,
+      "vocabulary": 1-10,
+      "confidence": 1-10
+    }}
+  }},
+  "predicted_questions": [
+    "likely next question 1",
+    "likely next question 2",
+    "likely next question 3",
+    "likely next question 4",
+    "likely next question 5"
+  ]
+}}
+
+Rules:
+- Metrics should reflect the ENTIRE conversation, not just the last message.
+- Trends: "up" if user improved on this metric vs earlier, "down" if worse, "same" if first message or unchanged.
+- predicted_questions: Based on what the user just said, what would you realistically ask or bring up next? These help the user PREPARE.
+- Keep your in-character response realistic. React to what the user actually said.
+- If the user's English is already natural, still set verdict=natural and give an encouraging tip."""
+
+    conversation_so_far = history_text + f"User: {user_message}"
+    return call_llm_json(prompt, conversation_so_far,
+                         ["response", "correction", "metrics", "predicted_questions"],
+                         max_tokens=1200)
+
+
 def improve_conversation(conversation_lines: list[str]) -> dict:
     """Improve each line of a conversation dialogue."""
     formatted = "\n".join(f"Line {i+1}: {line}" for i, line in enumerate(conversation_lines))

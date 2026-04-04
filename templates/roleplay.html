@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import page_header %}
+
+{% block title_extra %}— Role Play{% endblock %}
+
+{% block content %}
+{{ page_header("Role Play Practice", "Pick a scenario and practice real English conversations") }}
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
+  {% for id, s in scenarios.items() %}
+  <a href="/roleplay/{{ s.id }}" style="text-decoration: none;">
+    <div class="card" style="cursor: pointer; border: 2px solid #334155; transition: all 0.2s; height: 100%;"
+         onmouseover="this.style.borderColor='#818cf8'; this.style.transform='translateY(-2px)'"
+         onmouseout="this.style.borderColor='#334155'; this.style.transform='translateY(0)'">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+        <div style="font-size: 2.5rem;">{{ s.icon }}</div>
+        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end;">
+          {% for tag in s.tags %}
+          <span style="font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 99px; background: #1e3a5f; color: #93c5fd; font-weight: 600;">{{ tag }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div style="font-size: 1.05rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.35rem;">{{ s.title }}</div>
+      <div style="font-size: 0.82rem; color: #94a3b8; line-height: 1.5; margin-bottom: 1rem;">{{ s.description }}</div>
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: auto; padding-top: 0.75rem; border-top: 1px solid #334155;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: #334155; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">🤖</div>
+        <div>
+          <div style="font-size: 0.78rem; font-weight: 600; color: #e2e8f0;">{{ s.ai_name }}</div>
+          <div style="font-size: 0.7rem; color: #64748b;">{{ s.ai_title }}</div>
+        </div>
+        <div style="margin-left: auto; color: #818cf8; font-size: 0.85rem; font-weight: 600;">Start →</div>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card" style="margin-top: 2rem; border-left: 3px solid #818cf8;">
+  <div class="card-title">How it works</div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; font-size: 0.85rem; color: #94a3b8;">
+    <div><span style="color: #818cf8; font-weight: 600;">1. Pick a scenario</span><br>Choose the situation you want to practice — interview, sales, negotiation, or casual chat.</div>
+    <div><span style="color: #818cf8; font-weight: 600;">2. Talk naturally</span><br>Type what you'd actually say. Don't overthink — practice being real, not perfect.</div>
+    <div><span style="color: #818cf8; font-weight: 600;">3. Get feedback</span><br>After each message, see if your English was natural, and get the corrected version.</div>
+    <div><span style="color: #818cf8; font-weight: 600;">4. Keep going</span><br>The AI stays in character throughout. Try to reach your goal — get hired, close the deal!</div>
+  </div>
+</div>
+{% endblock %}

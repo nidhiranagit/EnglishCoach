@@ -633,6 +633,124 @@ def conversation_improve():
 # Settings
 # ---------------------------------------------------------------------------
 
+ROLEPLAY_SCENARIOS = {
+    "ds_interview": {
+        "id": "ds_interview",
+        "title": "Data Science Interview",
+        "icon": "🧠",
+        "description": "Practice being interviewed for a Data Science role at a US tech company.",
+        "your_role": "Job Candidate",
+        "ai_name": "Alex",
+        "ai_title": "Senior Data Scientist, TechCorp USA",
+        "tags": ["Technical", "Career"],
+        "metric_categories": ["Technical Knowledge", "Communication", "Problem Solving", "Cultural Fit"],
+        "starter": "Hey! Good to meet you. I'm Alex, Senior Data Scientist here at TechCorp. We've got about 45 minutes — I'll ask you some technical questions and we'll chat about your experience. Let's start simple: can you walk me through your background in data science?",
+        "ai_role_prompt": "You are Alex, a Senior Data Scientist at a US tech company conducting a job interview for a Data Science role. You're friendly but professional. Ask questions about Python, machine learning, statistics, SQL, past projects, problem-solving, and behavioral scenarios. React naturally to the candidate's answers — follow up, dig deeper, or move to the next topic. Keep responses short (2-4 sentences).",
+    },
+    "vendor_sales": {
+        "id": "vendor_sales",
+        "title": "Vendor Sales Pitch",
+        "icon": "💼",
+        "description": "You are selling your product/service to an American business buyer.",
+        "your_role": "Sales Person / Vendor",
+        "ai_name": "Mike",
+        "ai_title": "Procurement Manager, US Enterprise",
+        "tags": ["Business", "Sales"],
+        "metric_categories": ["Persuasion", "Product Knowledge", "Handling Objections", "Professionalism"],
+        "starter": "Hey, thanks for taking the time. I've got about 20 minutes before my next call. So — what exactly are you selling, and why should I care?",
+        "ai_role_prompt": "You are Mike, a Procurement Manager at a US company. Someone is pitching you a product or service. You're busy, slightly skeptical, but open-minded. Ask tough but fair questions: pricing, ROI, competitors, implementation, support. React realistically to what the vendor says. Keep responses short and direct (2-4 sentences).",
+    },
+    "salary_negotiation": {
+        "id": "salary_negotiation",
+        "title": "Salary Negotiation",
+        "icon": "💰",
+        "description": "Negotiate your salary with an American HR manager after getting a job offer.",
+        "your_role": "Job Candidate",
+        "ai_name": "Sarah",
+        "ai_title": "HR Manager, US Tech Company",
+        "tags": ["Career", "Business"],
+        "metric_categories": ["Negotiation Skill", "Confidence", "Market Awareness", "Professionalism"],
+        "starter": "Hi! Congratulations again on the offer. I wanted to loop back with you on the compensation package. We offered $95,000 base. Have you had a chance to review everything?",
+        "ai_role_prompt": "You are Sarah, an HR Manager at a US tech company. You've made a job offer at $95,000 and the candidate wants to negotiate. You have budget flexibility up to $110,000 but won't reveal it easily. Be professional, fair, and realistic. Hold your ground at first, but be open to reasonable arguments. Keep responses short and natural (2-4 sentences).",
+    },
+    "it_colleague": {
+        "id": "it_colleague",
+        "title": "American IT Colleague",
+        "icon": "💻",
+        "description": "Casual tech conversation with an American IT colleague — troubleshoot, discuss projects, or just small talk.",
+        "your_role": "Your Role",
+        "ai_name": "Jake",
+        "ai_title": "Software Engineer, US Team",
+        "tags": ["Casual", "Technical"],
+        "metric_categories": ["Communication", "Technical Discussion", "Friendliness", "Clarity"],
+        "starter": "Hey! How's it going? I saw you were working on that API integration — how's that coming along? I might have run into a similar issue last week.",
+        "ai_role_prompt": "You are Jake, a friendly American software engineer. You're having a casual work conversation with a colleague — could be about a tech problem, a project, or just catching up. Use natural American work language, light humor, tech slang. Keep it real and conversational (2-4 sentences).",
+    },
+    "job_application": {
+        "id": "job_application",
+        "title": "Impress the Hiring Manager",
+        "icon": "🎯",
+        "description": "Talk to an American hiring manager and convince them to hire you. Make your case!",
+        "your_role": "Job Applicant",
+        "ai_name": "Lisa",
+        "ai_title": "VP of Engineering, US Startup",
+        "tags": ["Career", "Interview"],
+        "metric_categories": ["Impact & Value", "Storytelling", "Confidence", "Relevance"],
+        "starter": "So I looked at your resume — interesting background. But honestly, we have 50 applications. Tell me something that makes you stand out. Why should it be you?",
+        "ai_role_prompt": "You are Lisa, VP of Engineering at a US tech startup. You're evaluating a candidate who is trying to impress you and get hired. You're direct, no-nonsense, and value people who are clear about their value. Push back on vague answers, ask follow-up questions, challenge their claims. Be realistic — sometimes impressed, sometimes skeptical. (2-4 sentences per response).",
+    },
+    "english_teacher": {
+        "id": "english_teacher",
+        "title": "English Teacher",
+        "icon": "📖",
+        "description": "Practice free conversation with a patient American English teacher who helps you improve.",
+        "your_role": "Student",
+        "ai_name": "Ms. Karen",
+        "ai_title": "English Teacher, USA",
+        "tags": ["Learning", "Casual"],
+        "metric_categories": ["Fluency", "Sentence Structure", "Expressiveness", "Active Listening"],
+        "starter": "Hi! Welcome. I'm here to help you practice your English — no pressure at all. We can talk about anything you like: your day, your work, your hobbies, or anything you want to get better at expressing. What would you like to talk about today?",
+        "ai_role_prompt": "You are Ms. Karen, a warm and patient American English teacher. Your student is a Hindi speaker practicing conversational English. Encourage them, gently correct major mistakes inline (e.g., 'you could also say...'), ask follow-up questions to keep the conversation going. Keep it light and supportive. (2-4 sentences per response).",
+    },
+}
+
+
+@app.route("/roleplay")
+def roleplay_page():
+    return render_template("roleplay.html", scenarios=ROLEPLAY_SCENARIOS)
+
+
+@app.route("/roleplay/<scenario_id>")
+def roleplay_session(scenario_id):
+    scenario = ROLEPLAY_SCENARIOS.get(scenario_id)
+    if not scenario:
+        return "Scenario not found", 404
+    return render_template("roleplay_chat.html", scenario=scenario)
+
+
+@app.route("/roleplay/<scenario_id>/message", methods=["POST"])
+def roleplay_message(scenario_id):
+    from ai_helpers import roleplay_respond
+    scenario = ROLEPLAY_SCENARIOS.get(scenario_id)
+    if not scenario:
+        return jsonify({"error": "Scenario not found"}), 404
+
+    data = request.get_json()
+    user_message = (data.get("message") or "").strip()
+    history = data.get("history") or []
+
+    if not user_message:
+        return jsonify({"error": "Message is required"}), 400
+    if len(user_message) > 500:
+        return jsonify({"error": "Message too long (max 500 chars)"}), 400
+
+    result = roleplay_respond(
+        scenario_id, scenario["ai_role_prompt"], history, user_message,
+        scenario.get("metric_categories", [])
+    )
+    return jsonify(result)
+
+
 @app.route("/settings")
 def settings_page():
     providers = get_available_providers()
