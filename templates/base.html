@@ -70,6 +70,7 @@
             margin: 0 auto;
             padding: 2rem 1.5rem;
         }
+        .container.wide { max-width: 1440px; padding: 1.25rem 1.5rem; }
         .page-title {
             font-size: 1.5rem;
             font-weight: 700;
@@ -462,7 +463,7 @@
         </div>
     </nav>
 
-    <div class="container">
+    <div class="container {% block container_class %}{% endblock %}">
         {% block content %}{% endblock %}
     </div>
 
