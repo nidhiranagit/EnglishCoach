@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% from "components/macros.html" import page_header %}
+
+{% block title_extra %}— Visual Vocabulary{% endblock %}
+
+{% block content %}
+<style>
+  .vv-main { max-width: 900px; margin: 0 auto; }
+  .vv-word-card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 2rem; text-align: center; animation: fadeIn 0.4s ease; }
+  .vv-word { font-size: 2.5rem; font-weight: 800; color: #f1f5f9; margin-bottom: 0.25rem; }
+  .vv-pronunciation { font-size: 0.95rem; color: #818cf8; font-style: italic; margin-bottom: 0.5rem; }
+  .vv-pos { display: inline-block; background: #312e81; color: #c7d2fe; font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.75rem; border-radius: 99px; margin-bottom: 0.75rem; }
+  .vv-definition { font-size: 1.1rem; color: #e2e8f0; line-height: 1.6; margin-bottom: 0.5rem; }
+  .vv-hindi { font-size: 1.15rem; color: #f59e0b; margin-bottom: 0.75rem; }
+  .vv-example { font-size: 0.9rem; color: #94a3b8; line-height: 1.5; background: #0f172a; padding: 0.75rem 1rem; border-radius: 8px; border-left: 3px solid #818cf8; margin-bottom: 0.75rem; text-align: left; }
+  .vv-tip { font-size: 0.85rem; color: #10b981; background: #064e3b30; padding: 0.6rem 1rem; border-radius: 8px; border-left: 3px solid #10b981; text-align: left; }
+
+  .vv-images { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem; }
+  .vv-img-card { background: #0f172a; border: 1px solid #334155; border-radius: 12px; overflow: hidden; animation: fadeIn 0.5s ease; }
+  .vv-img-card img { width: 100%; height: 200px; object-fit: cover; display: block; }
+  .vv-img-label { padding: 0.5rem; font-size: 0.75rem; color: #64748b; text-align: center; }
+
+  .vv-actions { display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem; }
+  .vv-counter { text-align: center; margin-top: 1rem; font-size: 0.8rem; color: #475569; }
+
+  .vv-empty { text-align: center; padding: 4rem 2rem; }
+  .vv-empty-icon { font-size: 4rem; margin-bottom: 1rem; }
+  .vv-empty-title { font-size: 1.3rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.5rem; }
+  .vv-empty-desc { font-size: 0.9rem; color: #94a3b8; line-height: 1.6; max-width: 500px; margin: 0 auto 1.5rem; }
+
+  .vv-history-toggle { background: none; border: 1px solid #334155; color: #94a3b8; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+  .vv-history-toggle:hover { background: #334155; color: #e2e8f0; }
+  .vv-history-panel { display: none; background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 1rem; margin-top: 1rem; max-height: 300px; overflow-y: auto; }
+  .vv-history-word { display: inline-block; background: #0f172a; border: 1px solid #334155; color: #cbd5e1; padding: 0.3rem 0.75rem; border-radius: 99px; font-size: 0.8rem; margin: 0.2rem; cursor: default; }
+
+  .vv-loading { text-align: center; padding: 3rem; }
+  .vv-spinner { width: 40px; height: 40px; border: 3px solid #334155; border-top-color: #818cf8; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .vv-speak-btn { background: none; border: 2px solid #334155; color: #818cf8; font-size: 1.5rem; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .vv-speak-btn:hover { background: #334155; border-color: #818cf8; transform: scale(1.1); }
+  .vv-speak-btn.speaking { background: #312e81; border-color: #818cf8; animation: pulse 1s infinite; }
+  .vv-speak-all-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 0.5rem 1.25rem; border-radius: 8px; cursor: pointer; font-size: 0.82rem; transition: all 0.2s; }
+  .vv-speak-all-btn:hover { background: #334155; color: #e2e8f0; }
+  .vv-speak-all-btn.speaking { background: #312e81; color: #818cf8; border-color: #818cf8; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @media (max-width: 700px) { .vv-images { grid-template-columns: 1fr; } }
+</style>
+
+<div class="vv-main">
+
+{{ page_header("Visual Vocabulary", "Build mental images for English words — see it, remember it") }}
+
+<!-- Empty state -->
+<div id="vv-empty" class="vv-empty">
+  <div class="vv-empty-icon">🖼️</div>
+  <div class="vv-empty-title">Build Your Visual Dictionary</div>
+  <div class="vv-empty-desc">
+    Each word comes with 3 images to help you create a mental picture.
+    Great for abstract words like "treat", "patience", "hustle" — words where
+    the Hindi image (samajhna) doesn't map directly to English.
+  </div>
+  <button class="btn btn-primary" onclick="fetchNextWord()" style="padding: 0.85rem 2.5rem; font-size: 1.05rem;">
+    Show Me a Word →
+  </button>
+  {% if word_count > 0 %}
+  <div class="vv-counter" style="margin-top: 1rem;">You've learned <strong style="color: #818cf8;">{{ word_count }}</strong> words so far</div>
+  {% endif %}
+</div>
+
+<!-- Loading state -->
+<div id="vv-loading" class="vv-loading" style="display: none;">
+  <div class="vv-spinner"></div>
+  <div style="color: #94a3b8;">Finding a new word with images...</div>
+</div>
+
+<!-- Word display -->
+<div id="vv-content" style="display: none;">
+  <div class="vv-word-card">
+    <div style="display:flex; align-items:center; justify-content:center; gap:0.75rem;">
+      <div class="vv-word" id="vv-word"></div>
+      <button onclick="speakWord()" class="vv-speak-btn" title="Hear the word">🔊</button>
+    </div>
+    <div class="vv-pronunciation" id="vv-pronunciation"></div>
+    <div class="vv-pos" id="vv-pos"></div>
+    <div class="vv-definition" id="vv-definition"></div>
+    <div class="vv-hindi" id="vv-hindi"></div>
+    <div class="vv-example" id="vv-example"></div>
+    <div class="vv-tip" id="vv-tip"></div>
+    <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:0.75rem;">
+      <button onclick="speakAll()" class="vv-speak-all-btn">🔊 Hear Word + Meaning + Example</button>
+    </div>
+  </div>
+
+  <div class="vv-images" id="vv-images"></div>
+
+  <div class="vv-actions">
+    <button class="btn btn-primary" id="vv-next-btn" onclick="fetchNextWord()" style="padding: 0.75rem 2rem;">
+      Next Word →
+    </button>
+    <button class="vv-history-toggle" onclick="toggleHistory()">
+      📚 History (<span id="vv-count">0</span>)
+    </button>
+  </div>
+
+  <div class="vv-counter" id="vv-counter"></div>
+
+  <div class="vv-history-panel" id="vv-history-panel"></div>
+</div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let totalWords = {{ word_count }};
+let prefetchedWord = null;
+let prefetching = false;
+let currentWord = null;
+let currentAudio = null;
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Speech (OpenAI TTS) ──
+async function speakText(text, btn) {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  if (btn) btn.classList.add('speaking');
+  try {
+    const res = await fetch('/visual-vocab/speak', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text })
+    });
+    const data = await res.json();
+    if (data.audio) {
+      currentAudio = new Audio('data:audio/mp3;base64,' + data.audio);
+      currentAudio.onended = () => { if (btn) btn.classList.remove('speaking'); currentAudio = null; };
+      currentAudio.play();
+    } else {
+      if (btn) btn.classList.remove('speaking');
+    }
+  } catch(e) { if (btn) btn.classList.remove('speaking'); }
+}
+
+function speakWord() {
+  if (!currentWord) return;
+  speakText(currentWord.word, document.querySelector('.vv-speak-btn'));
+}
+
+function speakAll() {
+  if (!currentWord) return;
+  const text = `${currentWord.word}. ${currentWord.definition}. For example: ${currentWord.example}`;
+  speakText(text, document.querySelector('.vv-speak-all-btn'));
+}
+
+// Prefetch next word + preload its images in background
+async function prefetchNext() {
+  if (prefetching) return;
+  prefetching = true;
+  try {
+    const res = await fetch('/visual-vocab/next', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    const data = await res.json();
+    if (!data.error) {
+      prefetchedWord = data;
+      // Preload images into browser cache
+      (data.images || []).forEach(img => {
+        const preload = new Image();
+        preload.src = img.url;
+      });
+    }
+  } catch (e) { /* silent fail — will fetch live on click */ }
+  finally { prefetching = false; }
+}
+
+function displayWord(data) {
+  currentWord = data;
+  document.getElementById('vv-word').textContent = data.word || '';
+  document.getElementById('vv-pronunciation').textContent = data.pronunciation ? `/${data.pronunciation}/` : '';
+  const cat = data.category || '';
+  document.getElementById('vv-pos').textContent = cat ? `${data.part_of_speech || ''} · ${cat}` : (data.part_of_speech || '');
+  document.getElementById('vv-definition').textContent = data.definition || '';
+  document.getElementById('vv-hindi').innerHTML = `हिंदी: <strong>${escHtml(data.hindi || '')}</strong>`;
+  document.getElementById('vv-example').innerHTML = `<strong>Example:</strong> ${escHtml(data.example || '')}`;
+
+  const tip = data.memory_tip;
+  document.getElementById('vv-tip').innerHTML = tip ? `💡 <strong>Memory tip:</strong> ${escHtml(tip)}` : '';
+  document.getElementById('vv-tip').style.display = tip ? 'block' : 'none';
+
+  const imagesDiv = document.getElementById('vv-images');
+  imagesDiv.innerHTML = '';
+  (data.images || []).forEach((img, i) => {
+    const card = document.createElement('div');
+    card.className = 'vv-img-card';
+    card.style.animationDelay = `${i * 0.15}s`;
+    card.innerHTML = `
+      <img src="${escHtml(img.url)}" alt="${escHtml(img.alt)}"
+           onerror="this.src='https://placehold.co/400x300/1e293b/64748b?text=${encodeURIComponent(img.alt || data.word)}'">
+      <div class="vv-img-label">${escHtml(img.alt)} · <span style="color:#475569;">${escHtml(img.credit || '')}</span></div>
+    `;
+    imagesDiv.appendChild(card);
+  });
+
+  totalWords = data.total_words || (totalWords + 1);
+  document.getElementById('vv-count').textContent = totalWords;
+  document.getElementById('vv-counter').innerHTML = `You've visualized <strong style="color:#818cf8;">${totalWords}</strong> words so far`;
+
+  // Auto-speak: word + meaning + example
+  const autoText = `${data.word}. ${data.definition}. For example: ${data.example}`;
+  speakText(autoText, document.querySelector('.vv-speak-all-btn'));
+}
+
+async function fetchNextWord() {
+  document.getElementById('vv-empty').style.display = 'none';
+  document.getElementById('vv-next-btn').disabled = true;
+
+  // If we have a prefetched word, use it instantly
+  if (prefetchedWord) {
+    const data = prefetchedWord;
+    prefetchedWord = null;
+    displayWord(data);
+    document.getElementById('vv-content').style.display = 'block';
+    document.getElementById('vv-loading').style.display = 'none';
+    document.getElementById('vv-next-btn').disabled = false;
+    // Start prefetching the next one
+    prefetchNext();
+    return;
+  }
+
+  // No prefetched word — fetch live with loading spinner
+  document.getElementById('vv-content').style.display = 'none';
+  document.getElementById('vv-loading').style.display = 'block';
+
+  try {
+    const res = await fetch('/visual-vocab/next', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    const data = await res.json();
+
+    if (data.error) {
+      alert('Error: ' + data.error);
+      document.getElementById('vv-empty').style.display = 'block';
+      document.getElementById('vv-loading').style.display = 'none';
+      return;
+    }
+
+    displayWord(data);
+    document.getElementById('vv-loading').style.display = 'none';
+    document.getElementById('vv-content').style.display = 'block';
+
+  } catch (e) {
+    alert('Connection error. Please try again.');
+    document.getElementById('vv-empty').style.display = 'block';
+    document.getElementById('vv-loading').style.display = 'none';
+  } finally {
+    document.getElementById('vv-next-btn').disabled = false;
+  }
+
+  // Start prefetching the next one
+  prefetchNext();
+}
+
+async function toggleHistory() {
+  const panel = document.getElementById('vv-history-panel');
+  if (panel.style.display === 'block') {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.innerHTML = '<div style="color:#64748b;">Loading history...</div>';
+  panel.style.display = 'block';
+
+  try {
+    const res = await fetch('/visual-vocab/history');
+    const history = await res.json();
+    if (!history.length) {
+      panel.innerHTML = '<div style="color:#64748b;">No words yet.</div>';
+      return;
+    }
+    panel.innerHTML = history.map(h =>
+      `<span class="vv-history-word" title="${escHtml(h.data?.definition || '')}">${escHtml(h.data?.word || h.word)}</span>`
+    ).join('');
+  } catch (e) {
+    panel.innerHTML = '<div style="color:#ef4444;">Failed to load history.</div>';
+  }
+}
+</script>
+{% endblock %}

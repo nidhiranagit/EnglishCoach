@@ -426,7 +426,7 @@
             <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Dashboard</a>
 
             <div class="nav-dropdown" onclick="toggleDropdown(this, event)">
-                <button class="nav-dropdown-toggle {% if request.path in ['/session', '/email', '/compare', '/conversation', '/roleplay'] or request.path.startswith('/roleplay/') %}has-active{% endif %}">Practice</button>
+                <button class="nav-dropdown-toggle {% if request.path in ['/session', '/email', '/compare', '/conversation', '/roleplay', '/visual-vocab'] or request.path.startswith('/roleplay/') %}has-active{% endif %}">Practice</button>
                 <div class="nav-dropdown-menu">
                     <a href="/session" {% if request.path == '/session' %}class="active"{% endif %}><span class="menu-icon">✍️</span> Sentences</a>
                     <a href="/email" {% if request.path == '/email' %}class="active"{% endif %}><span class="menu-icon">📧</span> Email Writing</a>
@@ -438,7 +438,7 @@
             </div>
 
             <div class="nav-dropdown" onclick="toggleDropdown(this, event)">
-                <button class="nav-dropdown-toggle {% if request.path in ['/review', '/vocabulary', '/drills', '/challenge', '/idiom'] %}has-active{% endif %}">
+                <button class="nav-dropdown-toggle {% if request.path in ['/review', '/vocabulary', '/drills', '/challenge', '/idiom', '/visual-vocab'] %}has-active{% endif %}">
                     Learn
                     {% if due_count is defined and due_count > 0 %}<span class="nav-badge">{{ due_count }}</span>{% endif %}
                 </button>
@@ -452,6 +452,7 @@
                     <div class="nav-dropdown-divider"></div>
                     <a href="/challenge" {% if request.path == '/challenge' %}class="active"{% endif %}><span class="menu-icon">🏆</span> Daily Challenge</a>
                     <a href="/idiom" {% if request.path == '/idiom' %}class="active"{% endif %}><span class="menu-icon">💡</span> Idiom of the Day</a>
+                    <a href="/visual-vocab" {% if request.path == '/visual-vocab' %}class="active"{% endif %}><span class="menu-icon">🖼️</span> Visual Vocabulary</a>
                 </div>
             </div>
 

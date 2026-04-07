@@ -19,6 +19,7 @@ from stats import calculate_stats, get_weekly_chart_data, generate_report
 from ai_helpers import (
     extract_vocabulary, compare_sentences, analyze_email,
     generate_grammar_drill, get_idiom_of_the_day, improve_conversation,
+    generate_visual_word,
 )
 from challenges import get_todays_challenge
 from llm_provider import get_available_providers, get_current_provider_info, save_config
@@ -798,126 +799,197 @@ Interview style:
 
 
 # ---------------------------------------------------------------------------
-# Settings
+# Feature 9: Visual Vocabulary
 # ---------------------------------------------------------------------------
 
-ROLEPLAY_SCENARIOS = {
-    "ds_interview": {
-        "id": "ds_interview",
-        "title": "Data Science Interview",
-        "icon": "🧠",
-        "description": "Practice being interviewed for a Data Science role at a US tech company.",
-        "your_role": "Job Candidate",
-        "ai_name": "Alex",
-        "ai_title": "Senior Data Scientist, TechCorp USA",
-        "tags": ["Technical", "Career"],
-        "metric_categories": ["Technical Knowledge", "Communication", "Problem Solving", "Cultural Fit"],
-        "starter": "Hey! Good to meet you. I'm Alex, Senior Data Scientist here at TechCorp. We've got about 45 minutes — I'll ask you some technical questions and we'll chat about your experience. Let's start simple: can you walk me through your background in data science?",
-        "ai_role_prompt": "You are Alex, a Senior Data Scientist at a US tech company conducting a job interview for a Data Science role. You're friendly but professional. Ask questions about Python, machine learning, statistics, SQL, past projects, problem-solving, and behavioral scenarios. React naturally to the candidate's answers — follow up, dig deeper, or move to the next topic. Keep responses short (2-4 sentences).",
-    },
-    "vendor_sales": {
-        "id": "vendor_sales",
-        "title": "Vendor Sales Pitch",
-        "icon": "💼",
-        "description": "You are selling your product/service to an American business buyer.",
-        "your_role": "Sales Person / Vendor",
-        "ai_name": "Mike",
-        "ai_title": "Procurement Manager, US Enterprise",
-        "tags": ["Business", "Sales"],
-        "metric_categories": ["Persuasion", "Product Knowledge", "Handling Objections", "Professionalism"],
-        "starter": "Hey, thanks for taking the time. I've got about 20 minutes before my next call. So — what exactly are you selling, and why should I care?",
-        "ai_role_prompt": "You are Mike, a Procurement Manager at a US company. Someone is pitching you a product or service. You're busy, slightly skeptical, but open-minded. Ask tough but fair questions: pricing, ROI, competitors, implementation, support. React realistically to what the vendor says. Keep responses short and direct (2-4 sentences).",
-    },
-    "salary_negotiation": {
-        "id": "salary_negotiation",
-        "title": "Salary Negotiation",
-        "icon": "💰",
-        "description": "Negotiate your salary with an American HR manager after getting a job offer.",
-        "your_role": "Job Candidate",
-        "ai_name": "Sarah",
-        "ai_title": "HR Manager, US Tech Company",
-        "tags": ["Career", "Business"],
-        "metric_categories": ["Negotiation Skill", "Confidence", "Market Awareness", "Professionalism"],
-        "starter": "Hi! Congratulations again on the offer. I wanted to loop back with you on the compensation package. We offered $95,000 base. Have you had a chance to review everything?",
-        "ai_role_prompt": "You are Sarah, an HR Manager at a US tech company. You've made a job offer at $95,000 and the candidate wants to negotiate. You have budget flexibility up to $110,000 but won't reveal it easily. Be professional, fair, and realistic. Hold your ground at first, but be open to reasonable arguments. Keep responses short and natural (2-4 sentences).",
-    },
-    "it_colleague": {
-        "id": "it_colleague",
-        "title": "American IT Colleague",
-        "icon": "💻",
-        "description": "Casual tech conversation with an American IT colleague — troubleshoot, discuss projects, or just small talk.",
-        "your_role": "Your Role",
-        "ai_name": "Jake",
-        "ai_title": "Software Engineer, US Team",
-        "tags": ["Casual", "Technical"],
-        "metric_categories": ["Communication", "Technical Discussion", "Friendliness", "Clarity"],
-        "starter": "Hey! How's it going? I saw you were working on that API integration — how's that coming along? I might have run into a similar issue last week.",
-        "ai_role_prompt": "You are Jake, a friendly American software engineer. You're having a casual work conversation with a colleague — could be about a tech problem, a project, or just catching up. Use natural American work language, light humor, tech slang. Keep it real and conversational (2-4 sentences).",
-    },
-    "job_application": {
-        "id": "job_application",
-        "title": "Impress the Hiring Manager",
-        "icon": "🎯",
-        "description": "Talk to an American hiring manager and convince them to hire you. Make your case!",
-        "your_role": "Job Applicant",
-        "ai_name": "Lisa",
-        "ai_title": "VP of Engineering, US Startup",
-        "tags": ["Career", "Interview"],
-        "metric_categories": ["Impact & Value", "Storytelling", "Confidence", "Relevance"],
-        "starter": "So I looked at your resume — interesting background. But honestly, we have 50 applications. Tell me something that makes you stand out. Why should it be you?",
-        "ai_role_prompt": "You are Lisa, VP of Engineering at a US tech startup. You're evaluating a candidate who is trying to impress you and get hired. You're direct, no-nonsense, and value people who are clear about their value. Push back on vague answers, ask follow-up questions, challenge their claims. Be realistic — sometimes impressed, sometimes skeptical. (2-4 sentences per response).",
-    },
-    "english_teacher": {
-        "id": "english_teacher",
-        "title": "English Teacher",
-        "icon": "📖",
-        "description": "Practice free conversation with a patient American English teacher who helps you improve.",
-        "your_role": "Student",
-        "ai_name": "Ms. Karen",
-        "ai_title": "English Teacher, USA",
-        "tags": ["Learning", "Casual"],
-        "metric_categories": ["Fluency", "Sentence Structure", "Expressiveness", "Active Listening"],
-        "starter": "Hi! Welcome. I'm here to help you practice your English — no pressure at all. We can talk about anything you like: your day, your work, your hobbies, or anything you want to get better at expressing. What would you like to talk about today?",
-        "ai_role_prompt": "You are Ms. Karen, a warm and patient American English teacher. Your student is a Hindi speaker practicing conversational English. Encourage them, gently correct major mistakes inline (e.g., 'you could also say...'), ask follow-up questions to keep the conversation going. Keep it light and supportive. (2-4 sentences per response).",
-    },
-}
+VISUAL_VOCAB_FILE = os.path.join(os.path.dirname(__file__), "data", "visual_vocab_history.json")
 
 
-@app.route("/roleplay")
-def roleplay_page():
-    return render_template("roleplay.html", scenarios=ROLEPLAY_SCENARIOS)
+def _load_visual_history():
+    if os.path.exists(VISUAL_VOCAB_FILE):
+        try:
+            with open(VISUAL_VOCAB_FILE, "r") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    return []
 
 
-@app.route("/roleplay/<scenario_id>")
-def roleplay_session(scenario_id):
-    scenario = ROLEPLAY_SCENARIOS.get(scenario_id)
-    if not scenario:
-        return "Scenario not found", 404
-    return render_template("roleplay_chat.html", scenario=scenario)
+def _save_visual_history(history):
+    os.makedirs(os.path.dirname(VISUAL_VOCAB_FILE), exist_ok=True)
+    with open(VISUAL_VOCAB_FILE, "w") as f:
+        json.dump(history, f, indent=2, ensure_ascii=False)
 
 
-@app.route("/roleplay/<scenario_id>/message", methods=["POST"])
-def roleplay_message(scenario_id):
-    from ai_helpers import roleplay_respond
-    scenario = ROLEPLAY_SCENARIOS.get(scenario_id)
-    if not scenario:
-        return jsonify({"error": "Scenario not found"}), 404
+def _fetch_duckduckgo_images(search_terms, word):
+    """Fetch images via DuckDuckGo image search (no API key needed, best relevance)."""
+    try:
+        from ddgs import DDGS
+    except ImportError:
+        try:
+            from duckduckgo_search import DDGS
+        except ImportError:
+            return []
 
+    images = []
+    seen_urls = set()
+    ddgs = DDGS()
+    for term in search_terms[:3]:
+        try:
+            results = ddgs.images(term, max_results=3)
+            for r in results:
+                url = r.get("image", "")
+                if url and url not in seen_urls and not url.endswith(".svg"):
+                    seen_urls.add(url)
+                    images.append({
+                        "url": url,
+                        "alt": term,
+                        "credit": r.get("source", "Web"),
+                    })
+                    break
+        except Exception:
+            pass
+    return images
+
+
+def _fetch_pexels_images(search_terms):
+    """Fetch images from Pexels API if key available."""
+    import requests as http_req
+    key = os.environ.get("PEXELS_API_KEY", "")
+    if not key:
+        return None
+    images = []
+    for term in search_terms[:3]:
+        try:
+            resp = http_req.get(
+                "https://api.pexels.com/v1/search",
+                headers={"Authorization": key},
+                params={"query": term, "per_page": 3, "size": "medium"},
+                timeout=5,
+            )
+            if resp.status_code == 200:
+                photos = resp.json().get("photos", [])
+                if photos:
+                    images.append({
+                        "url": photos[0]["src"]["medium"],
+                        "alt": term,
+                        "credit": photos[0].get("photographer", "Pexels"),
+                    })
+        except Exception:
+            pass
+    return images if images else None
+
+
+def _get_image_urls(search_terms, word):
+    """Get image URLs — tries DuckDuckGo → Pexels → placeholder."""
+    # 1. DuckDuckGo (no key needed, best relevance for all word types)
+    ddg = _fetch_duckduckgo_images(search_terms, word)
+    if ddg and len(ddg) >= 2:
+        return ddg
+
+    # 2. Pexels (best quality, needs API key)
+    pexels = _fetch_pexels_images(search_terms)
+    if pexels and len(pexels) >= 2:
+        return pexels
+
+    # 3. Fallback: combine whatever we got + placeholder
+    all_imgs = (ddg or []) + (pexels or [])
+    while len(all_imgs) < 3:
+        idx = len(all_imgs)
+        all_imgs.append({
+            "url": f"https://placehold.co/400x300/1e293b/818cf8?text={search_terms[idx] if idx < len(search_terms) else word}",
+            "alt": search_terms[idx] if idx < len(search_terms) else word,
+            "credit": "No image found",
+        })
+    return all_imgs[:3]
+
+
+@app.route("/visual-vocab")
+def visual_vocab_page():
+    history = _load_visual_history()
+    return render_template("visual_vocab.html", word_count=len(history))
+
+
+@app.route("/visual-vocab/next", methods=["POST"])
+def visual_vocab_next():
+    history = _load_visual_history()
+    exclude = [w["word"].lower() for w in history]
+
+    word_data = generate_visual_word(exclude)
+    if "error" in word_data:
+        return jsonify({"error": f"Failed to generate word: {word_data['error']}"}), 500
+
+    word = word_data.get("word", "").strip()
+    if not word:
+        return jsonify({"error": "No word generated"}), 500
+
+    if word.lower() in exclude:
+        word_data = generate_visual_word(exclude + [word.lower()])
+        if "error" in word_data:
+            return jsonify({"error": f"Failed to generate word: {word_data['error']}"}), 500
+        word = word_data.get("word", "").strip()
+
+    search_terms = word_data.get("image_searches", [word])
+    images = _get_image_urls(search_terms, word)
+    word_data["images"] = images
+
+    history.append({
+        "word": word.lower(),
+        "data": word_data,
+        "date": datetime.now().isoformat(),
+    })
+    _save_visual_history(history)
+
+    return jsonify({**word_data, "total_words": len(history)})
+
+
+@app.route("/visual-vocab/speak", methods=["POST"])
+def visual_vocab_speak():
+    """Generate speech audio using OpenAI TTS API."""
+    import requests as http_req
     data = request.get_json()
-    user_message = (data.get("message") or "").strip()
-    history = data.get("history") or []
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
 
-    if not user_message:
-        return jsonify({"error": "Message is required"}), 400
-    if len(user_message) > 500:
-        return jsonify({"error": "Message too long (max 500 chars)"}), 400
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    if not openai_key:
+        return jsonify({"error": "OpenAI API key not configured"}), 500
 
-    result = roleplay_respond(
-        scenario_id, scenario["ai_role_prompt"], history, user_message,
-        scenario.get("metric_categories", [])
-    )
-    return jsonify(result)
+    try:
+        resp = http_req.post(
+            "https://api.openai.com/v1/audio/speech",
+            headers={
+                "Authorization": f"Bearer {openai_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "tts-1",
+                "input": text,
+                "voice": "alloy",
+                "response_format": "mp3",
+            },
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return jsonify({"error": f"TTS failed: {resp.status_code}"}), 500
 
+        import base64
+        audio_b64 = base64.b64encode(resp.content).decode("utf-8")
+        return jsonify({"audio": audio_b64})
+    except Exception as e:
+        return jsonify({"error": str(e)[:200]}), 500
+
+
+@app.route("/visual-vocab/history")
+def visual_vocab_history():
+    history = _load_visual_history()
+    return jsonify(list(reversed(history)))
+
+
+# ---------------------------------------------------------------------------
+# Settings
+# ---------------------------------------------------------------------------
 
 @app.route("/settings")
 def settings_page():

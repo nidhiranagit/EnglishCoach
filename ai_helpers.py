@@ -241,6 +241,55 @@ Rules:
                          max_tokens=1200)
 
 
+def generate_visual_word(exclude_words: list[str]) -> dict:
+    """Generate a vocabulary word with meaning and image search terms."""
+    exclude_text = ", ".join(exclude_words[:100]) if exclude_words else "none"
+
+    prompt = """You are an English vocabulary coach for Hindi speakers.
+Generate ONE COMMON English word that Hindi speakers often hear/read but struggle to feel or visualize.
+
+Randomly pick from ONE of these categories each time:
+
+1. COMMON VERBS: fetch, grab, toss, pour, stretch, lean, squeeze, stumble, bounce, scatter, spill, drift, flinch, nudge, dodge, clutch, settle, hesitate, insist, resist, persuade, urge, assume, imply, convey, perceive, endure, overcome, neglect, pursue, yield, acknowledge, anticipate, compromise, contradict, distinguish, elaborate, emphasize, indicate, justify, maintain, obtain, reveal, sustain, undergo, withdraw
+
+2. CONJUNCTIONS & CONNECTORS: although, whereas, nevertheless, furthermore, meanwhile, moreover, hence, thereby, despite, regardless, unless, whether, consequently, accordingly, nonetheless, otherwise, therefore, thus, indeed, besides, alternatively, subsequently, henceforth, notwithstanding, provided, insofar
+
+3. ABSTRACT NOUNS: patience, justice, freedom, grief, relief, anxiety, gratitude, integrity, dignity, empathy, resilience, ambiguity, dilemma, conscience, privilege, obligation, tendency, perspective, assumption, consequence, significance, relevance, abundance, scarcity, harmony, chaos, solitude, nostalgia, skepticism, compassion, curiosity, determination, frustration, satisfaction
+
+4. GERUNDS & VERBAL NOUNS: struggling, longing, belonging, understanding, reasoning, overthinking, brainstorming, troubleshooting, multitasking, procrastinating, commuting, networking, budgeting, parenting, mentoring, freelancing, volunteering, fundraising, daydreaming, eavesdropping, moonlighting, gatekeeping, gaslighting, ghosting
+
+5. COMMON ADJECTIVES: subtle, genuine, reluctant, overwhelming, inevitable, absurd, ambiguous, compelling, deliberate, discreet, feasible, harsh, humble, mundane, naive, persistent, pragmatic, profound, skeptical, spontaneous, thorough, trivial, vague, vulnerable, worthwhile
+
+DO NOT pick rare/literary words. Pick words people actually use in daily conversation, meetings, emails, and news.
+
+DO NOT use any of these words: """ + exclude_text + """
+
+Return ONLY valid JSON:
+{
+  "word": "the English word",
+  "part_of_speech": "verb/conjunction/noun/gerund/adjective",
+  "category": "verb/connector/abstract noun/gerund/adjective",
+  "definition": "clear 1-line definition",
+  "hindi": "Hindi translation in Devanagari script",
+  "pronunciation": "simple phonetic pronunciation",
+  "example": "a natural example sentence using the word in a real-life context",
+  "image_searches": ["search term 1", "search term 2", "search term 3"],
+  "memory_tip": "a short memorable tip connecting the English word to its Hindi meaning or a visual image"
+}
+
+Rules for image_searches — provide 3 DIFFERENT search terms that find good photos:
+- For verbs: show the action (e.g., "persuade" → ["person convincing friend", "sales pitch meeting", "debate discussion"])
+- For abstract nouns: use visual metaphors (e.g., "patience" → ["person waiting calmly", "hourglass sand timer", "fisherman waiting river"])
+- For connectors: show cause-effect or contrast scenes (e.g., "nevertheless" → ["person walking rain", "athlete pushing through pain", "student studying late night"])
+- For gerunds: show the activity (e.g., "procrastinating" → ["person scrolling phone work", "messy desk deadline", "clock running late"])
+- For adjectives: show what it looks like (e.g., "subtle" → ["subtle color difference", "whisper conversation", "gentle hint"])
+- Keep search terms descriptive (2-4 words each)"""
+
+    return call_llm_json(prompt, "Generate a visual vocabulary word",
+                         ["word", "definition", "hindi", "example", "image_searches"],
+                         max_tokens=400)
+
+
 def improve_conversation(conversation_lines: list[str]) -> dict:
     """Improve each line of a conversation dialogue."""
     formatted = "\n".join(f"Line {i+1}: {line}" for i, line in enumerate(conversation_lines))
